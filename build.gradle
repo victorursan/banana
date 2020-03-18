@@ -7,27 +7,9 @@ plugins {
 group 'com.victor'
 version '1.0.0-SNAPSHOT'
 
-sourceCompatibility = JavaVersion.VERSION_13
-targetCompatibility = JavaVersion.VERSION_13
-
-mainClassName = 'com.victor.banana.Main'
 
 repositories {
     mavenCentral()
-}
-ext {
-    vertxVersion = '3.8.5'
-}
-
-dependencies {
-    compile  group: 'io.vertx',  name: 'vertx-core', version: vertxVersion
-    compile  group: 'io.vertx',  name: 'vertx-web', version: vertxVersion
-    compile  group: 'io.vertx',  name: 'vertx-config', version: vertxVersion
-    testImplementation  group: 'io.vertx',  name: 'vertx-junit5', version: vertxVersion
-}
-
-wrapper {
-    gradleVersion = '6.2.2'
 }
 
 sourceSets {
@@ -36,4 +18,49 @@ sourceSets {
             srcDirs "src/main/resources", "src/main/conf"
         }
     }
+}
+
+application {
+    mainClassName = 'io.vertx.core.Launcher'
+}
+
+compileJava {
+    sourceCompatibility = JavaVersion.VERSION_13
+    targetCompatibility = JavaVersion.VERSION_13
+}
+
+
+def mainVerticleName = 'com.victor.banana.verticles.SupervisorVerticle'
+
+run {
+    args = ['run', mainVerticleName, "--launcher-class=$mainClassName"]
+}
+
+ext {
+    vertxVersion = '3.8.5'
+    telegrambotsVersion = '4.6'
+}
+
+dependencies {
+    //vertx
+    implementation group: 'io.vertx', name: 'vertx-core', version: vertxVersion
+    implementation group: 'io.vertx', name: 'vertx-web', version: vertxVersion
+    implementation group: 'io.vertx', name: 'vertx-config', version: vertxVersion
+    implementation group: 'io.vertx', name: 'vertx-health-check', version: vertxVersion
+    compileOnly "io.vertx:vertx-service-proxy:$vertxVersion"
+    annotationProcessor "io.vertx:vertx-service-proxy:$vertxVersion:processor"
+    compileOnly "io.vertx:vertx-codegen:$vertxVersion"
+    annotationProcessor "io.vertx:vertx-codegen:$vertxVersion:processor"
+
+
+    //telegram
+    implementation group: 'org.telegram', name: 'telegrambots', version: telegrambotsVersion
+
+    //test
+    testImplementation group: 'io.vertx', name: 'vertx-junit5', version: vertxVersion
+
+}
+
+wrapper {
+    gradleVersion = '6.2.2'
 }

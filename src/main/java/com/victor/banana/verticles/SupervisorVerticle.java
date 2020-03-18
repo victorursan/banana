@@ -19,11 +19,18 @@ public class SupervisorVerticle extends AbstractVerticle {
                 final var httpConf = json.result().getJsonObject("http");
                 vertx.deployVerticle(HttpServerVerticle::new, new DeploymentOptions().setConfig(httpConf), t -> {
                     if (t.succeeded()) {
-                        startPromise.complete();
+                        vertx.deployVerticle(TelegramBotVerticle::new, new DeploymentOptions().setConfig(httpConf), t2 -> {
+                            if (t2.succeeded()) {
+                                startPromise.complete();
+                            } else {
+                                startPromise.fail(t2.cause());
+                            }
+                        });
                     } else {
                         startPromise.fail(t.cause());
                     }
                 });
+
             } else {
                 json.cause().printStackTrace();
                 startPromise.fail(json.cause());
