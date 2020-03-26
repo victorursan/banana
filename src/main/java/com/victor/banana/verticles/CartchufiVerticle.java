@@ -1,44 +1,37 @@
 package com.victor.banana.verticles;
 
-import com.victor.banana.models.configs.TelegramBotConfig;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.TelegramBotService;
-import com.victor.banana.services.impl.TelegramBotServiceImpl;
+import com.victor.banana.services.impl.CartchufiServiceImpl;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonObject;
 import io.vertx.serviceproxy.ServiceBinder;
 
 import static com.victor.banana.utils.Constants.EventbusAddress.*;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.future;
 
-public class TelegramBotVerticle extends AbstractVerticle {
+public class CartchufiVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
-        final var configs = vertx.getOrCreateContext().config();
-        deployServiceBinder(configs)
-                .setHandler(startPromise);
+        deployServiceBinder().setHandler(startPromise);
     }
 
-    private Future<Void> deployServiceBinder(JsonObject config) {
+    private Future<Void> deployServiceBinder() {
         try {
             final var dbService = DatabaseService.createProxy(vertx, DATABASE);
-            final var cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
-            final var telegramConf = config.mapTo(TelegramBotConfig.class);
-            final var service = new TelegramBotServiceImpl(telegramConf, dbService, cartchufiService);
+            final var telegramBotService = TelegramBotService.createProxy(vertx, TELEGRAM_BOT);
+            final var service = new CartchufiServiceImpl(telegramBotService, dbService);
 
             return future(new ServiceBinder(vertx)
-                    .setAddress(TELEGRAM_BOT)
-                    .register(TelegramBotService.class, service)
+                    .setAddress(CARTCHUFI_ENGINE)
+                    .register(CartchufiService.class, service)
                     ::completionHandler);
         } catch (Exception e) {
             return failedFuture(e);
         }
 
     }
-
-
 }
