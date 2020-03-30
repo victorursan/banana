@@ -16,7 +16,13 @@ import static com.victor.banana.utils.Constants.DeliveryOptionsConstants.LOCAL_D
 @VertxGen
 public interface CartchufiService {
 
-    void stickyActionScanned(StickyAction stickyAction, Handler<AsyncResult<Ticket>> result);
+    void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result);
+
+    void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+
+    void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
+
+    void actionSelected(String actionId, Handler<AsyncResult<Ticket>> result);
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 

@@ -32,33 +32,69 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void stickyActionScanned(StickyAction stickyAction, Handler<AsyncResult<Ticket>> result) {
-        final var ticket = Ticket.builder()
+    public final void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result) {
+        final var sticky = Sticky.builder()
                 .id(UUID.randomUUID().toString())
-                .actionId(stickyAction.getActionId())
-                .message(String.format("%s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage()))
-                .state(TicketState.PENDING)
+                .message(createSticky.getMessage())
+                .actions(createSticky.getActions().stream().map(message ->
+                        Action.builder().id(UUID.randomUUID().toString()).message(message).build()
+                ).collect(toList()))
                 .build();
-        final var affectedChatsF = chatsForTicket(ticket);
-        final var ticketF = Future.<Boolean>future(t -> databaseService.addTicket(ticket, t));
-        CompositeFuture.join(affectedChatsF, ticketF)
-                .onSuccess(s -> {
-                    if (!affectedChatsF.result().isEmpty()) {
-                        final var sendMessages = affectedChatsF.result().stream().map(chatId ->
-                                SendTicketMessage.builder()
-                                        .chatId(chatId)
-                                        .ticketId(ticket.getId())
-                                        .ticketMessage(ticket.getMessage())
-                                        .build())
-                                .collect(toList());
-                        Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
-                                .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
-                                .onFailure(t -> log.error("Something went wrong while saving the ticket messages", t));
-                    } else {
-                        log.error(String.format("No personnel was found for this ticket: %s", ticket.toJson().toString()));
-                    }
+        Future.<Boolean>future(c ->
+                databaseService.addSticky(sticky, c)
+        ).flatMap(e -> {
+            if (e) {
+                return Future.succeededFuture(sticky);
+            } else {
+                return Future.failedFuture("something went wrong");
+            }
+        }).onComplete(result);
+    }
+
+    @Override
+    public final void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result) {
+        Future.<Sticky>future(f -> databaseService.getSticky(UUID.fromString(stickyId).toString(), f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
+        Future.<Ticket>future(f -> databaseService.getTicket(UUID.fromString(ticketId).toString(), f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void actionSelected(String actionId, Handler<AsyncResult<Ticket>> result) {
+        Future.<StickyAction>future(t -> databaseService.getStickyAction(actionId, t))
+                .flatMap(stickyAction -> {
+                    final var ticket = Ticket.builder()
+                            .id(UUID.randomUUID().toString())
+                            .actionId(stickyAction.getActionId())
+                            .message(String.format("%s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage()))
+                            .state(TicketState.PENDING)
+                            .build();
+                    final var affectedChatsF = chatsForTicket(ticket);
+                    final var ticketF = Future.<Boolean>future(t -> databaseService.addTicket(ticket, t));
+                    CompositeFuture.join(affectedChatsF, ticketF)
+                            .onSuccess(s -> {
+                                if (!affectedChatsF.result().isEmpty()) {
+                                    final var sendMessages = affectedChatsF.result().stream().map(chatId ->
+                                            SendTicketMessage.builder()
+                                                    .chatId(chatId)
+                                                    .ticketId(ticket.getId())
+                                                    .ticketMessage(ticket.getMessage())
+                                                    .build())
+                                            .collect(toList());
+                                    Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
+                                            .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
+                                            .onFailure(t -> log.error("Something went wrong while saving the ticket messages", t));
+                                } else {
+                                    log.error(String.format("No personnel was found for this ticket: %s", ticket.toJson().toString()));
+                                }
+                            })
+                            .onFailure(t -> log.error(t.getMessage(), t));
+                    return ticketF.map(ticket);
                 })
-                .map(ticket)
                 .setHandler(result);
     }
 
@@ -125,7 +161,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onFailure(t -> log.error("An error occurred: ", t))
                 .onSuccess(m -> log.info("Added message: " + m.toString()));
     }
-    
+
     private Future<List<Long>> chatsForTicket(Ticket t) {
         return Future.future(databaseService::getChats);
     }

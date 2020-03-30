@@ -79,41 +79,6 @@ public interface TicketAction {
         };
     }
 
-    static Ticket compute(Ticket oldTicket, TicketMessageState messageState, String personnelId) {
-        return switch (oldTicket.getState()) {
-            case PENDING -> switch (messageState) {
-                case ACQUIRED -> {
-                    oldTicket.setState(TicketState.ACQUIRED);
-                    oldTicket.setAcquiredBy(personnelId);
-                    yield oldTicket;
-                }
-                default -> oldTicket;
-            };
-            case ACQUIRED -> switch (messageState) {
-                case UN_ACQUIRED -> {
-                    oldTicket.setState(TicketState.PENDING);
-                    oldTicket.setAcquiredBy(null);
-                    yield oldTicket;
-                }
-                case SOLVED -> {
-                    oldTicket.setState(TicketState.SOLVED);
-                    oldTicket.setSolvedBy(personnelId);
-                    yield oldTicket;
-
-                }
-                default -> oldTicket;
-            };
-            case SOLVED -> switch (messageState) {
-                case UN_SOLVE -> {
-                    oldTicket.setState(TicketState.ACQUIRED);
-                    oldTicket.setSolvedBy(null);
-                    yield oldTicket;
-                }
-                default -> oldTicket;
-            };
-        };
-    }
-
     String getMessage();
 
     Ticket getTicket();

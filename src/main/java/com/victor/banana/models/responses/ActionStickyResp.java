@@ -5,10 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 
 @Builder
-@Data
 @AllArgsConstructor
-public class TicketRes {
-    private String ticketId;
+@Data
+public class ActionStickyResp {
+    private String id;
     private String message;
-    private String state;
 }
