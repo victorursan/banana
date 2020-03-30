@@ -1,4 +1,4 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.tickets;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -13,6 +13,7 @@ public class Ticket {
     private String id;
     private String actionId;
     private String message;
+    private TicketState state;
     private String acquiredBy;
     private String solvedBy;
 

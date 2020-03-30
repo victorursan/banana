@@ -45,12 +45,12 @@ FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
 CREATE TABLE chat_message (
-    id TEXT NOT NULL PRIMARY KEY,
     message_id BIGINT NOT NULL,
     chat_id BIGINT NOT NULL REFERENCES telegram_channel(chat_id),
     message TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY(message_id, chat_id)
 );
 
 CREATE TRIGGER set_timestamp
@@ -71,10 +71,14 @@ BEFORE UPDATE ON sticky_action
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
+
+CREATE TYPE STATE AS ENUM ('PENDING', 'ACQUIRED', 'SOLVED');
+
 CREATE TABLE ticket (
     ticket_id UUID NOT NULL PRIMARY KEY,
     action_id UUID NOT NULL REFERENCES sticky_action(action_id),
     message TEXT NOT NULL,
+    state STATE NOT NULL,
     aquired_by UUID REFERENCES personnel(personnel_id),
     aquired_at TIMESTAMP WITH TIME ZONE,
     solved_by UUID REFERENCES personnel(personnel_id),
@@ -90,12 +94,12 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 
 
 CREATE TABLE chat_ticket_message (
-    id TEXT NOT NULL PRIMARY KEY,
     message_id BIGINT NOT NULL,
     chat_id BIGINT NOT NULL REFERENCES telegram_channel(chat_id),
     ticket_id UUID NOT NULL REFERENCES ticket(ticket_id),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY(message_id, chat_id)
 );
 
 CREATE TRIGGER set_timestamp

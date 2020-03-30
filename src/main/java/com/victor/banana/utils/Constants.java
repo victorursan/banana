@@ -2,7 +2,9 @@ package com.victor.banana.utils;
 
 import io.vertx.core.eventbus.DeliveryOptions;
 
-public class Constants {
+public final class Constants {
+    private Constants() {}
+
     public static class EventbusAddress {
         public static final String DATABASE = "eventbuss.service.database";
         public static final String TELEGRAM_BOT = "eventbuss.service.telegram.bot";

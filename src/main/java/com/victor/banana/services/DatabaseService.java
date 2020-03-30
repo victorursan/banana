@@ -1,6 +1,8 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.tickets.Ticket;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
@@ -31,7 +33,7 @@ public interface DatabaseService {
 
     void addMessage(ChatMessage chatMessage, Handler<AsyncResult<Boolean>> result);
 
-    void addTicketsMessage(List<ChatTicketMessage> chatMessages, Handler<AsyncResult<Boolean>> result);
+    void addTicketsMessage(List<SentTicketMessage> chatMessages, Handler<AsyncResult<Boolean>> result);
 
     void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result);
 

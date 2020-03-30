@@ -3,16 +3,17 @@ package com.victor.banana.verticles;
 import com.victor.banana.models.events.Action;
 import com.victor.banana.models.events.Sticky;
 import com.victor.banana.models.events.StickyAction;
-import com.victor.banana.models.events.Ticket;
+import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.requests.StickyReq;
+import com.victor.banana.models.responses.TicketRes;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
-import com.victor.banana.services.TelegramBotService;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
+import io.vertx.core.json.Json;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
@@ -70,7 +71,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var actionId = rc.request().getParam("actionId");
         Future.<StickyAction>future(t -> databaseService.getStickyAction(actionId, t))
                 .flatMap(st -> Future.<Ticket>future(t -> cartchufiService.stickyActionScanned(st, t)))
-                .onSuccess(t -> rc.response().setStatusCode(200).end("Done"))
+                .onSuccess(t -> rc.response().setStatusCode(200).end(Json.encode(new TicketRes(t.getId()))))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
                     rc.response().setStatusCode(500).end(t.getMessage());

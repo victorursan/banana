@@ -2,7 +2,6 @@ package com.victor.banana.verticles;
 
 import com.victor.banana.models.configs.TelegramBotConfig;
 import com.victor.banana.services.CartchufiService;
-import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.TelegramBotService;
 import com.victor.banana.services.impl.TelegramBotServiceImpl;
 import io.vertx.core.AbstractVerticle;
@@ -25,10 +24,9 @@ public class TelegramBotVerticle extends AbstractVerticle {
 
     private Future<Void> deployServiceBinder(JsonObject config) {
         try {
-            final var dbService = DatabaseService.createProxy(vertx, DATABASE);
             final var cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
             final var telegramConf = config.mapTo(TelegramBotConfig.class);
-            final var service = new TelegramBotServiceImpl(telegramConf, dbService, cartchufiService);
+            final var service = new TelegramBotServiceImpl(telegramConf, cartchufiService);
 
             return future(new ServiceBinder(vertx)
                     .setAddress(TELEGRAM_BOT)

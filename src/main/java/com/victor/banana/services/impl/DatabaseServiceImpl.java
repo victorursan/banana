@@ -1,6 +1,10 @@
 package com.victor.banana.services.impl;
 
+import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.DatabaseService;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.AsyncResult;
@@ -85,27 +89,27 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void addMessage(ChatMessage chatMessage, Handler<AsyncResult<Boolean>> result) {
-        queryExecutor.execute(c -> c.insertInto(CHAT_MESSAGE, CHAT_MESSAGE.ID, CHAT_MESSAGE.MESSAGE_ID, CHAT_MESSAGE.CHAT_ID, CHAT_MESSAGE.MESSAGE)
-                .values(String.format("%s:%s", chatMessage.getChatId(), chatMessage.getMessageId()), chatMessage.getMessageId(), chatMessage.getChatId(), chatMessage.getMessage()))
+        queryExecutor.execute(c -> c.insertInto(CHAT_MESSAGE, CHAT_MESSAGE.MESSAGE_ID, CHAT_MESSAGE.CHAT_ID, CHAT_MESSAGE.MESSAGE)
+                .values(chatMessage.getMessageId(), chatMessage.getChatId(), chatMessage.getMessage()))
                 .map(i -> i == 1)
                 .setHandler(result);
     }
 
     @Override
-    public final void addTicketsMessage(List<ChatTicketMessage> chatMessages, Handler<AsyncResult<Boolean>> result) {
+    public final void addTicketsMessage(List<SentTicketMessage> chatMessages, Handler<AsyncResult<Boolean>> result) {
         queryExecutor.execute(c -> {
-             final var insert = c.insertInto(CHAT_TICKET_MESSAGE, CHAT_TICKET_MESSAGE.ID, CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID);
+             final var insert = c.insertInto(CHAT_TICKET_MESSAGE, CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID);
              chatMessages.forEach(chatMessage ->
-                    insert.values(String.format("%s:%s", chatMessage.getChatId(), chatMessage.getMessageId()), chatMessage.getMessageId(), chatMessage.getChatId(), UUID.fromString(chatMessage.getTicketId())));
+                    insert.values(chatMessage.getMessageId(), chatMessage.getChatId(), UUID.fromString(chatMessage.getTicketId())));
             return insert.onConflictDoNothing();
         })
                 .map(i -> i == chatMessages.size())
-                .setHandler(result);
+                .onComplete(result);
     }
 
     @Override
     public final void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result) {
-        queryExecutor.findManyRow(c -> c.select(CHAT_TICKET_MESSAGE.ID, CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID).from(CHAT_TICKET_MESSAGE)
+        queryExecutor.findManyRow(c -> c.select(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID).from(CHAT_TICKET_MESSAGE)
                 .where(CHAT_TICKET_MESSAGE.TICKET_ID.eq(UUID.fromString(ticketId))))
                 .map(rows -> rows.stream()
                         .map(row ->
@@ -120,7 +124,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getTicketForMessage(Long chatId, Long messageId, Handler<AsyncResult<Ticket>> result) {
         queryExecutor.findOneRow(c ->
-                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE)
+                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
                  .from(CHAT_TICKET_MESSAGE)
                         .innerJoin(TICKET)
                         .using(TICKET.TICKET_ID)
@@ -188,7 +192,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
-        queryExecutor.findOneRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE).from(TICKET)
+        queryExecutor.findOneRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
                 .where(TICKET.TICKET_ID.eq(UUID.fromString(ticketId))))
                 .flatMap(this::rowToTicket)
                 .setHandler(result);
@@ -202,17 +206,33 @@ public class DatabaseServiceImpl implements DatabaseService {
                         .acquiredBy(r.getString(TICKET.AQUIRED_BY.getName()))
                         .solvedBy(r.getString(TICKET.SOLVED_BY.getName()))
                         .message(r.getString(TICKET.MESSAGE.getName()))
+                        .state(ticketToTicketState(State.valueOf(r.getString(TICKET.STATE.getName()))))
                         .build();
                 return succeededFuture(sticky);
             }
             return failedFuture("No Row found");
+    }
 
+    private State ticketStateToState(TicketState ts) {
+        return switch (ts) {
+            case SOLVED -> State.SOLVED;
+            case ACQUIRED -> State.ACQUIRED;
+            case PENDING -> State.PENDING;
+        };
+    }
+
+    private TicketState ticketToTicketState(State ts) {
+        return switch (ts) {
+            case SOLVED -> TicketState.SOLVED;
+            case ACQUIRED -> TicketState.ACQUIRED;
+            case PENDING -> TicketState.PENDING;
+        };
     }
 
     @Override
     public final void addTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result) {
-        queryExecutor.execute(c -> c.insertInto(TICKET, TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.MESSAGE)
-                .values(UUID.fromString(ticket.getId()), UUID.fromString(ticket.getActionId()), ticket.getMessage()))
+        queryExecutor.execute(c -> c.insertInto(TICKET, TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.MESSAGE, TICKET.STATE)
+                .values(UUID.fromString(ticket.getId()), UUID.fromString(ticket.getActionId()), ticket.getMessage(), ticketStateToState(ticket.getState())))
                 .map(i -> i == 1)
                 .setHandler(result);
     }
@@ -222,7 +242,8 @@ public class DatabaseServiceImpl implements DatabaseService {
         queryExecutor.execute(c ->
                 c.update(TICKET)
                 .set(TICKET.AQUIRED_BY, ticket.getAcquiredBy() != null ? UUID.fromString(ticket.getAcquiredBy()) : null)
-                .set(TICKET.SOLVED_BY, ticket.getSolvedBy() != null ? UUID.fromString(ticket.getAcquiredBy()) : null)
+                .set(TICKET.SOLVED_BY, ticket.getSolvedBy() != null ? UUID.fromString(ticket.getSolvedBy()) : null)
+                .set(TICKET.STATE, ticketStateToState(ticket.getState()))
                 .where(TICKET.TICKET_ID.eq(UUID.fromString(ticket.getId())))
         ).map(i -> i == 1)
          .setHandler(result);

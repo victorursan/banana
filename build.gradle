@@ -25,8 +25,8 @@ application {
 }
 
 compileJava {
-    sourceCompatibility = JavaVersion.VERSION_13
-    targetCompatibility = JavaVersion.VERSION_13
+    sourceCompatibility = JavaVersion.VERSION_14
+    targetCompatibility = JavaVersion.VERSION_14
 }
 
 
@@ -83,10 +83,6 @@ dependencies {
     testAnnotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs += "--enable-preview"
-}
-
 tasks.withType(Test) {
     jvmArgs += "--enable-preview"
 }
@@ -96,10 +92,11 @@ tasks.withType(JavaExec) {
 }
 
 wrapper {
-    gradleVersion = '6.2.2'
+    gradleVersion = '6.3'
 }
 
 jooq {
+    version = jooqVersion
     sample(sourceSets.main) {
         jdbc {
             driver = 'org.postgresql.Driver'
@@ -121,7 +118,7 @@ jooq {
                 interfaces = false
                 fluentSetters = true
                 pojos = false
-                daos = false
+                daos = true
             }
 
             target {
