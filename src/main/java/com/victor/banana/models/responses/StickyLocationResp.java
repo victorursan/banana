@@ -10,11 +10,10 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @Data
-public class StickyResp {
+public class StickyLocationResp {
     private String id;
+    private String locationId;
     private String message;
     @Singular
     private List<ActionStickyResp> actions;
-    @Singular
-    private List<LocationResp> locations;
 }

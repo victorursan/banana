@@ -1,20 +1,14 @@
 package com.victor.banana.controllers.bot;
 
-import com.victor.banana.models.events.ChatTicketMessage;
 import com.victor.banana.models.events.messages.*;
-import com.victor.banana.models.events.TelegramChannel;
-import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.services.CartchufiService;
-import com.victor.banana.services.DatabaseService;
 import io.vertx.core.Future;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
-import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
-import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 

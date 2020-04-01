@@ -18,7 +18,7 @@ public class SupervisorVerticle extends AbstractVerticle {
                 .addStore(new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", "config.json"))));
         future(retriever::getConfig)
                 .flatMap(this::deployVerticles)
-                .setHandler(startPromise);
+                .onComplete(startPromise);
     }
 
     private Future<Void> deployVerticles(JsonObject configs) {

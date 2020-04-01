@@ -3,7 +3,6 @@ package com.victor.banana.verticles;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.impl.DatabaseServiceImpl;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.pgclient.PgConnectOptions;
 import io.vertx.pgclient.PgPool;

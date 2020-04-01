@@ -2,7 +2,9 @@ package com.victor.banana.models.events.tickets;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 
 
 @Builder
@@ -12,6 +14,7 @@ import lombok.*;
 public class Ticket {
     private String id;
     private String actionId;
+    private String locationId;
     private String message;
     private TicketState state;
     private String acquiredBy;

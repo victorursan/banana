@@ -2,6 +2,9 @@ package com.victor.banana.services;
 
 import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.stickies.Sticky;
+import com.victor.banana.models.events.stickies.StickyAction;
+import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
@@ -41,9 +44,9 @@ public interface DatabaseService {
 
     void addSticky(Sticky sticky, Handler<AsyncResult<Boolean>> result);
 
-    void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+    void getStickyLocation(String stickyId, Handler<AsyncResult<StickyLocation>> result);
 
-    void getStickyAction(String actionId, Handler<AsyncResult<StickyAction>> result);
+    void getStickyAction(ActionSelected actionSelected, Handler<AsyncResult<StickyAction>> result);
 
     void addTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result);
 

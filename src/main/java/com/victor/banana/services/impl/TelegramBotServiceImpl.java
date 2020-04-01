@@ -2,9 +2,9 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.controllers.bot.BotController;
 import com.victor.banana.models.configs.TelegramBotConfig;
-import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.messages.SendTicketMessage;
 import com.victor.banana.models.events.messages.SendUpdateMessage;
+import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.messages.SentUpdateMessage;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.TelegramBotService;

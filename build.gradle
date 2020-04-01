@@ -91,6 +91,11 @@ tasks.withType(JavaExec) {
     jvmArgs += '--enable-preview'
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '-Xlint:unchecked'
+    options.deprecation = true
+}
+
 wrapper {
     gradleVersion = '6.3'
 }

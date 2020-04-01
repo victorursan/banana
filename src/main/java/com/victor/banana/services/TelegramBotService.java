@@ -1,9 +1,9 @@
 package com.victor.banana.services;
 
 
-import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.messages.SendTicketMessage;
 import com.victor.banana.models.events.messages.SendUpdateMessage;
+import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.messages.SentUpdateMessage;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;

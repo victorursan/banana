@@ -10,7 +10,8 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.serviceproxy.ServiceBinder;
 
-import static com.victor.banana.utils.Constants.EventbusAddress.*;
+import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
+import static com.victor.banana.utils.Constants.EventbusAddress.TELEGRAM_BOT;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.future;
 
@@ -19,7 +20,7 @@ public class TelegramBotVerticle extends AbstractVerticle {
     public void start(Promise<Void> startPromise) {
         final var configs = vertx.getOrCreateContext().config();
         deployServiceBinder(configs)
-                .setHandler(startPromise);
+                .onComplete(startPromise);
     }
 
     private Future<Void> deployServiceBinder(JsonObject config) {

@@ -11,4 +11,5 @@ import java.util.List;
 public class StickyReq {
     private String message;
     private List<String> actions;
+    private List<String> locations;
 }

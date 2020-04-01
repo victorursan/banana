@@ -38,7 +38,7 @@ public final class CallbackUtils {
                 .map(futures.stream()
                         .map(Future::result)
                         .collect(Collectors.toList()))
-                .setHandler(result);
+                .onComplete(result);
         return result.future();
 
     }

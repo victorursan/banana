@@ -31,6 +31,19 @@ BEFORE UPDATE ON sticky
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
+CREATE TABLE sticky_location (
+    location_id UUID NOT NULL PRIMARY KEY,
+    sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
+    message TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON sticky_location
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
 CREATE TABLE telegram_channel (
     chat_id BIGINT NOT NULL PRIMARY KEY,
     personnel_id UUID NOT NULL REFERENCES personnel(personnel_id),
@@ -77,6 +90,7 @@ CREATE TYPE STATE AS ENUM ('PENDING', 'ACQUIRED', 'SOLVED');
 CREATE TABLE ticket (
     ticket_id UUID NOT NULL PRIMARY KEY,
     action_id UUID NOT NULL REFERENCES sticky_action(action_id),
+    location_id UUID NOT NULL REFERENCES sticky_location(location_id),
     message TEXT NOT NULL,
     state STATE NOT NULL,
     aquired_by UUID REFERENCES personnel(personnel_id),

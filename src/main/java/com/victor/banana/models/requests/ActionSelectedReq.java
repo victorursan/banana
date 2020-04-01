@@ -7,4 +7,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ActionSelectedReq {
     private String actionId;
+    private String locationId;
 }

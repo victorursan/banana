@@ -3,6 +3,7 @@ package com.victor.banana.services.impl;
 import com.victor.banana.actions.TicketAction;
 import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.messages.*;
+import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.CartchufiService;
@@ -37,7 +38,16 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .id(UUID.randomUUID().toString())
                 .message(createSticky.getMessage())
                 .actions(createSticky.getActions().stream().map(message ->
-                        Action.builder().id(UUID.randomUUID().toString()).message(message).build()
+                        Action.builder()
+                                .id(UUID.randomUUID().toString())
+                                .message(message)
+                                .build()
+                ).collect(toList()))
+                .locations(createSticky.getLocations().stream().map(text ->
+                        Location.builder()
+                                .id(UUID.randomUUID().toString())
+                                .text(text)
+                                .build()
                 ).collect(toList()))
                 .build();
         Future.<Boolean>future(c ->
@@ -52,8 +62,8 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result) {
-        Future.<Sticky>future(f -> databaseService.getSticky(UUID.fromString(stickyId).toString(), f))
+    public final void getStickyLocation(String stickyLocation, Handler<AsyncResult<StickyLocation>> result) {
+        Future.<StickyLocation>future(f -> databaseService.getStickyLocation(UUID.fromString(stickyLocation).toString(), f))
                 .onComplete(result);
     }
 
@@ -64,13 +74,14 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void actionSelected(String actionId, Handler<AsyncResult<Ticket>> result) {
-        Future.<StickyAction>future(t -> databaseService.getStickyAction(actionId, t))
+    public final void actionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result) {
+        Future.<StickyAction>future(t -> databaseService.getStickyAction(actionSelected, t))
                 .flatMap(stickyAction -> {
                     final var ticket = Ticket.builder()
                             .id(UUID.randomUUID().toString())
                             .actionId(stickyAction.getActionId())
-                            .message(String.format("%s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage()))
+                            .locationId(stickyAction.getLocationId())
+                            .message(String.format("%s | %s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage(), stickyAction.getLocation()))
                             .state(TicketState.PENDING)
                             .build();
                     final var affectedChatsF = chatsForTicket(ticket);
@@ -95,7 +106,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .onFailure(t -> log.error(t.getMessage(), t));
                     return ticketF.map(ticket);
                 })
-                .setHandler(result);
+                .onComplete(result);
     }
 
     @Override

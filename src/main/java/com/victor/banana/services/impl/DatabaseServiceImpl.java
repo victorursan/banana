@@ -3,11 +3,16 @@ package com.victor.banana.services.impl;
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.stickies.Action;
+import com.victor.banana.models.events.stickies.Sticky;
+import com.victor.banana.models.events.stickies.StickyAction;
+import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.DatabaseService;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.pgclient.PgPool;
@@ -127,7 +132,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getTicketForMessage(Long chatId, Long messageId, Handler<AsyncResult<Ticket>> result) {
         queryExecutor.findOneRow(c ->
-                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
+                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
                         .from(CHAT_TICKET_MESSAGE)
                         .innerJoin(TICKET)
                         .using(TICKET.TICKET_ID)
@@ -138,18 +143,24 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result) { //todo
+    public final void getStickyLocation(String stickyLocationId, Handler<AsyncResult<StickyLocation>> result) {
         queryExecutor.transaction(t -> {
             final var stickyQ = queryExecutor.findOneRow(c ->
-                    c.select(STICKY.MESSAGE).from(STICKY).where(STICKY.STICKY_ID.eq(UUID.fromString(stickyId))));
-            final var actionsQ = queryExecutor.findManyRow(c ->
-                    c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.MESSAGE).from(STICKY_ACTION).where(STICKY_ACTION.STICKY_ID.eq(UUID.fromString(stickyId))));
+                    c.select(STICKY.STICKY_ID, STICKY.MESSAGE)
+                            .from(STICKY)
+                            .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
+                            .where(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(stickyLocationId))));
             return stickyQ.flatMap(stickyR -> {
                 if (stickyR != null) {
+                    final var stickyId = stickyR.getUUID(STICKY.STICKY_ID.getName());
+                    final var actionsQ = queryExecutor.findManyRow(c ->
+                            c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.MESSAGE).from(STICKY_ACTION).where(STICKY_ACTION.STICKY_ID.eq(stickyId)));
+
                     return actionsQ.flatMap(actionsR -> {
                         if (actionsR != null) {
-                            final var sticky = Sticky.builder()
-                                    .id(stickyId)
+                            final var sticky = StickyLocation.builder()
+                                    .id(stickyId.toString())
+                                    .locationId(stickyLocationId)
                                     .message(stickyR.getString(STICKY.MESSAGE.getName()))
                                     .actions(actionsR.stream().map(actionR -> Action.builder()
                                             .id(actionR.getUUID(STICKY_ACTION.ACTION_ID.getName()).toString())
@@ -167,16 +178,21 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void getStickyAction(String actionId, Handler<AsyncResult<StickyAction>> result) {
-        queryExecutor.findOneRow(c -> c.select(STICKY.MESSAGE.as("sticky_message"), STICKY_ACTION.MESSAGE.as("action_message"))
-                .from(STICKY_ACTION).innerJoin(STICKY).using(STICKY_ACTION.STICKY_ID)
-                .where(STICKY_ACTION.ACTION_ID.eq(UUID.fromString(actionId))))
+    public final void getStickyAction(ActionSelected actionSelected, Handler<AsyncResult<StickyAction>> result) {
+        queryExecutor.findOneRow(c -> c.select(STICKY.MESSAGE.as("sticky_message"), STICKY_ACTION.MESSAGE.as("action_message"), STICKY_LOCATION.MESSAGE.as("location"))
+                .from(STICKY_ACTION)
+                .innerJoin(STICKY).using(STICKY_ACTION.STICKY_ID)
+                .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
+                .where(STICKY_ACTION.ACTION_ID.eq(UUID.fromString(actionSelected.getActionId()))
+                        .and(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(actionSelected.getLocationId())))))
                 .flatMap(r -> {
                     if (r != null) {
                         final var stickyAction = StickyAction.builder()
-                                .actionId(actionId)
+                                .actionId(actionSelected.getActionId())
+                                .locationId(actionSelected.getLocationId())
                                 .actionMessage(r.getString("action_message"))
                                 .stickyMessage(r.getString("sticky_message"))
+                                .location(r.getString("location"))
                                 .build();
                         return succeededFuture(stickyAction);
                     }
@@ -193,12 +209,21 @@ public class DatabaseServiceImpl implements DatabaseService {
                         .values(stickyId, sticky.getMessage()))
                         .flatMap(i -> {
                             if (i == 1) {
-                                return t.execute(c -> {
+                                final var addActions = t.execute(c -> {
                                             final var insert = c.insertInto(STICKY_ACTION, STICKY_ACTION.ACTION_ID, STICKY_ACTION.STICKY_ID, STICKY_ACTION.MESSAGE);
                                             sticky.getActions().forEach(action -> insert.values(UUID.fromString(action.getId()), stickyId, action.getMessage()));
                                             return insert;
                                         }
                                 ).map(ii -> ii == sticky.getActions().size());
+                                final var addLocations = t.execute(c -> {
+                                            final var insert = c.insertInto(STICKY_LOCATION, STICKY_LOCATION.LOCATION_ID, STICKY_LOCATION.STICKY_ID, STICKY_LOCATION.MESSAGE);
+                                            sticky.getLocations().forEach(location -> insert.values(UUID.fromString(location.getId()), stickyId, location.getText()));
+                                            return insert;
+                                        }
+                                ).map(ii -> ii == sticky.getLocations().size());
+                                return CompositeFuture.join(addActions, addLocations)
+                                        .map(c ->
+                                                addActions.result() && addLocations.result());
                             }
                             return failedFuture("Failed to insert sticky");
                         })).onComplete(result);
@@ -207,10 +232,10 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
-        queryExecutor.findOneRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
+        queryExecutor.findOneRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
                 .where(TICKET.TICKET_ID.eq(UUID.fromString(ticketId))))
                 .flatMap(this::rowToTicket)
-                .setHandler(result);
+                .onComplete(result);
     }
 
     private Future<Ticket> rowToTicket(Row r) {
@@ -218,6 +243,7 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var ticket = Ticket.builder()
                     .id(r.getUUID(TICKET.TICKET_ID.getName()).toString())
                     .actionId(r.getUUID(TICKET.ACTION_ID.getName()).toString())
+                    .locationId(r.getUUID(TICKET.LOCATION_ID.getName()).toString())
                     .acquiredBy(r.getString(TICKET.AQUIRED_BY.getName()))
                     .solvedBy(r.getString(TICKET.SOLVED_BY.getName()))
                     .message(r.getString(TICKET.MESSAGE.getName()))
@@ -246,8 +272,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void addTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result) {
-        queryExecutor.execute(c -> c.insertInto(TICKET, TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.MESSAGE, TICKET.STATE)
-                .values(UUID.fromString(ticket.getId()), UUID.fromString(ticket.getActionId()), ticket.getMessage(), ticketStateToState(ticket.getState())))
+        queryExecutor.execute(c -> c.insertInto(TICKET, TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.MESSAGE, TICKET.STATE)
+                .values(UUID.fromString(ticket.getId()), UUID.fromString(ticket.getActionId()), UUID.fromString(ticket.getLocationId()), ticket.getMessage(), ticketStateToState(ticket.getState())))
                 .map(i -> i == 1)
                 .onComplete(result);
     }

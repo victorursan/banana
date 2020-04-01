@@ -1,8 +1,11 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.stickies;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.Singular;
 
 import java.util.List;
 
@@ -15,6 +18,8 @@ public class Sticky {
     private String message;
     @Singular
     private List<Action> actions;
+    @Singular
+    private List<Location> locations;
 
     public Sticky(JsonObject jsonObject) {
         StickyConverter.fromJson(jsonObject, this);

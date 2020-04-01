@@ -6,27 +6,25 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
-import java.util.List;
-
 @Builder
 @AllArgsConstructor
 @Data
 @DataObject(generateConverter = true)
-public class CreateSticky {
-    private String message;
-    private List<String> actions;
+public class ActionSelected {
+    private String actionId;
+    private String locationId;
 
-    public CreateSticky(JsonObject jsonObject) {
-        CreateStickyConverter.fromJson(jsonObject, this);
+    public ActionSelected(JsonObject jsonObject) {
+        ActionSelectedConverter.fromJson(jsonObject, this);
     }
 
     public JsonObject toJson() {
         final var json = new JsonObject();
-        CreateStickyConverter.toJson(this, json);
+        ActionSelectedConverter.toJson(this, json);
         return json;
     }
 
-    public static CreateSticky fromJson(JsonObject jsonObject) {
-        return new CreateSticky(jsonObject);
+    public static ActionSelected fromJson(JsonObject jsonObject) {
+        return new ActionSelected(jsonObject);
     }
 }

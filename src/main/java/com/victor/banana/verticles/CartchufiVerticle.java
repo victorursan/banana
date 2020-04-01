@@ -16,7 +16,7 @@ import static io.vertx.core.Future.future;
 public class CartchufiVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
-        deployServiceBinder().setHandler(startPromise);
+        deployServiceBinder().onComplete(startPromise);
     }
 
     private Future<Void> deployServiceBinder() {
