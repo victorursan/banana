@@ -1,9 +1,9 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.CreateLocation;
-import com.victor.banana.models.events.Location;
-import com.victor.banana.models.events.messages.SendTicketMessage;
+import com.victor.banana.models.events.locations.CreateLocation;
+import com.victor.banana.models.events.roles.CreateRole;
+import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.CreateSticky;
 import com.victor.banana.models.events.stickies.Sticky;
@@ -28,11 +28,19 @@ public interface CartchufiService {
 
     void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result);
 
+    void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
+
     void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result);
+
+    void createRole(CreateRole createRole, Handler<AsyncResult<Role>> result);
+
+    void deleteRole(String roleId, Handler<AsyncResult<Boolean>> result);
 
     void getStickyLocation(String stickyLocation, Handler<AsyncResult<StickyLocation>> result);
 
     void getLocations(Handler<AsyncResult<List<Location>>> result);
+
+    void deleteLocation(String locationId, Handler<AsyncResult<Boolean>> result);
 
     void getRoles(Handler<AsyncResult<List<Role>>> result);
 

@@ -1,6 +1,6 @@
 package com.victor.banana.models.events.stickies;
 
-import com.victor.banana.models.events.CreateLocation;
+import com.victor.banana.models.events.locations.CreateLocation;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;

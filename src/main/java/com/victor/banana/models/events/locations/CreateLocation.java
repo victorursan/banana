@@ -1,4 +1,4 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.locations;
 
 
 import io.vertx.codegen.annotations.DataObject;

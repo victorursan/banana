@@ -1,6 +1,9 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.locations.Location;
+import com.victor.banana.models.events.messages.ChatMessage;
+import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Sticky;
@@ -52,7 +55,15 @@ public interface DatabaseService {
 
     void addSticky(Sticky sticky, Handler<AsyncResult<Boolean>> result);
 
+    void deactivateSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
+
     void addLocation(Location location, Handler<AsyncResult<Boolean>> result);
+
+    void deactivateLocation(String locationId, Handler<AsyncResult<Boolean>> result);
+
+    void addRole(Role role, Handler<AsyncResult<Boolean>> result);
+
+    void deactivateRole(String roleId, Handler<AsyncResult<Boolean>> result);
 
     void getStickyLocation(String stickyId, Handler<AsyncResult<StickyLocation>> result);
 

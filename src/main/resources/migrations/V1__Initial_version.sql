@@ -10,6 +10,7 @@ CREATE TABLE location (
     location_id UUID NOT NULL PRIMARY KEY,
     parent_location UUID NOT NULL REFERENCES location(location_id),
     message TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
@@ -25,6 +26,7 @@ VALUES ('929abc9f-f34f-4a44-9928-863d9dfbe705', '929abc9f-f34f-4a44-9928-863d9df
 CREATE TABLE role (
     role_id UUID NOT NULL PRIMARY KEY,
     role_type TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
@@ -59,6 +61,7 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 CREATE TABLE sticky (
     sticky_id UUID NOT NULL PRIMARY KEY,
     message TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
@@ -114,6 +117,7 @@ CREATE TABLE sticky_action (
     sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
     role_id UUID NOT NULL REFERENCES role(role_id),
     message TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );

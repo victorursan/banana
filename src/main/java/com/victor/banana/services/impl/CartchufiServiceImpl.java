@@ -2,7 +2,10 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.actions.TicketAction;
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.locations.CreateLocation;
+import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.*;
+import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
@@ -70,7 +73,7 @@ public class CartchufiServiceImpl implements CartchufiService {
     public final void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result) {
         final var location = Location.builder()
                 .id(UUID.randomUUID().toString())
-                .parentLocation(UUID.fromString(createLocation.getParentLocation()).toString())
+                .parentLocation(createLocation.getParentLocation())
                 .text(createLocation.getLocation())
                 .build();
         Future.<Boolean>future(f -> databaseService.addLocation(location, f))
@@ -83,8 +86,23 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
+    public final void createRole(CreateRole createRole, Handler<AsyncResult<Role>> result) {
+        final var role = Role.builder()
+                .id(UUID.randomUUID().toString())
+                .type(createRole.getType())
+                .build();
+        Future.<Boolean>future(f -> databaseService.addRole(role, f))
+                .flatMap(b -> {
+                    if (b) {
+                        return succeededFuture(role);
+                    }
+                    return failedFuture("something went wrong");
+                }).onComplete(result);
+    }
+
+    @Override
     public final void getStickyLocation(String stickyLocation, Handler<AsyncResult<StickyLocation>> result) {
-        Future.<StickyLocation>future(f -> databaseService.getStickyLocation(UUID.fromString(stickyLocation).toString(), f))
+        Future.<StickyLocation>future(f -> databaseService.getStickyLocation(stickyLocation, f))
                 .onComplete(result);
     }
 
@@ -100,7 +118,7 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     @Override
     public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
-        Future.<Ticket>future(f -> databaseService.getTicket(UUID.fromString(ticketId).toString(), f))
+        Future.<Ticket>future(f -> databaseService.getTicket(ticketId, f))
                 .onComplete(result);
     }
 
@@ -274,6 +292,24 @@ public class CartchufiServiceImpl implements CartchufiService {
                 })
                 .onFailure(t -> log.error("An error occurred: ", t))
                 .onSuccess(m -> log.info("Added message: " + m.toString()));
+    }
+
+    @Override
+    public final void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result) {
+        Future.<Boolean>future(f -> databaseService.deactivateSticky(stickyId, f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void deleteRole(String roleId, Handler<AsyncResult<Boolean>> result) {
+        Future.<Boolean>future(f -> databaseService.deactivateRole(roleId, f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void deleteLocation(String locationId, Handler<AsyncResult<Boolean>> result) {
+        Future.<Boolean>future(f -> databaseService.deactivateLocation(locationId, f))
+                .onComplete(result);
     }
 
     private Future<List<Long>> chatsForTicket(Ticket t) {

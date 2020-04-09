@@ -1,4 +1,4 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.messages;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -10,22 +10,22 @@ import lombok.Data;
 @AllArgsConstructor
 @Data
 @DataObject(generateConverter = true)
-public class ChatTicketMessage {
+public class ChatMessage {
     private Long messageId;
     private Long chatId;
-    private String ticketId;
+    private String message;
 
-    public ChatTicketMessage(JsonObject jsonObject) {
-        ChatTicketMessageConverter.fromJson(jsonObject, this);
+    public ChatMessage(JsonObject jsonObject) {
+        ChatMessageConverter.fromJson(jsonObject, this);
     }
 
     public JsonObject toJson() {
         final var json = new JsonObject();
-        ChatTicketMessageConverter.toJson(this, json);
+        ChatMessageConverter.toJson(this, json);
         return json;
     }
 
-    public static ChatTicketMessage fromJson(JsonObject jsonObject) {
-        return new ChatTicketMessage(jsonObject);
+    public static ChatMessage fromJson(JsonObject jsonObject) {
+        return new ChatMessage(jsonObject);
     }
 }

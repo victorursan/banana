@@ -2,6 +2,9 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.locations.Location;
+import com.victor.banana.models.events.messages.ChatMessage;
+import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
@@ -16,6 +19,8 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
 import io.vertx.sqlclient.Row;
 import org.jooq.DSLContext;
@@ -32,6 +37,8 @@ import static java.util.stream.Collectors.toList;
 import static org.jooq.SQLDialect.POSTGRES;
 
 public class DatabaseServiceImpl implements DatabaseService {
+    private static final Logger log = LoggerFactory.getLogger(DatabaseServiceImpl.class);
+
     private final ReactiveClassicGenericQueryExecutor queryExecutor;
 
     public DatabaseServiceImpl(PgPool client) {
@@ -210,12 +217,15 @@ public class DatabaseServiceImpl implements DatabaseService {
                     c.select(STICKY.STICKY_ID, STICKY.MESSAGE)
                             .from(STICKY)
                             .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
-                            .where(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(stickyLocationId))));
+                            .where(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(stickyLocationId))).and(STICKY.ACTIVE.eq(true)));
             return stickyQ.flatMap(stickyR -> {
                 if (stickyR != null) {
                     final var stickyId = stickyR.getUUID(STICKY.STICKY_ID.getName());
                     final var actionsQ = t.findManyRow(c ->
-                            c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.MESSAGE).from(STICKY_ACTION).where(STICKY_ACTION.STICKY_ID.eq(stickyId)));
+                            c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.MESSAGE)
+                                    .from(STICKY_ACTION)
+                                    .where(STICKY_ACTION.STICKY_ID.eq(stickyId)
+                                            .and(STICKY_ACTION.ACTIVE.eq(true))));
 
                     return actionsQ.flatMap(actionsR -> {
                         if (actionsR != null) {
@@ -241,7 +251,8 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getLocations(Handler<AsyncResult<List<Location>>> result) {
         queryExecutor.findManyRow(c -> c.select(LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, LOCATION.MESSAGE).from(LOCATION)
-                .leftOuterJoin(STICKY_LOCATION).using(LOCATION.LOCATION_ID).where(STICKY_LOCATION.LOCATION_ID.isNull()))
+                .leftOuterJoin(STICKY_LOCATION).using(LOCATION.LOCATION_ID)
+                .where(STICKY_LOCATION.LOCATION_ID.isNull().and(LOCATION.ACTIVE.eq(true))))
                 .map(l -> l.stream()
                         .map(r -> Location.builder()
                                 .id(r.getUUID(LOCATION.LOCATION_ID.getName()).toString())
@@ -255,7 +266,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public void getRoles(Handler<AsyncResult<List<Role>>> result) {
-        queryExecutor.findManyRow(c -> c.select(ROLE.ROLE_ID, ROLE.ROLE_TYPE).from(ROLE))
+        queryExecutor.findManyRow(c -> c.select(ROLE.ROLE_ID, ROLE.ROLE_TYPE).from(ROLE).where(ROLE.ACTIVE.eq(true)))
                 .map(l -> l.stream()
                         .map(r -> Role.builder()
                                 .id(r.getUUID(ROLE.ROLE_ID.getName()).toString())
@@ -340,6 +351,15 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
+    public final void addRole(Role role, Handler<AsyncResult<Boolean>> result) {
+        queryExecutor.execute(c ->
+                c.insertInto(ROLE, ROLE.ROLE_ID, ROLE.ROLE_TYPE)
+                        .values(UUID.fromString(role.getId()), role.getType()))
+                .map(i -> i == 1)
+                .onComplete(result);
+    }
+
+    @Override
     public final void getActiveTicketForActionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result) {
         queryExecutor.findOneRow(c ->
                 c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
@@ -358,10 +378,38 @@ public class DatabaseServiceImpl implements DatabaseService {
                 .onComplete(result);
     }
 
+    @Override
+    public final void deactivateSticky(String stickyIdS, Handler<AsyncResult<Boolean>> result) {
+        final var stickyId = UUID.fromString(stickyIdS);
+        queryExecutor.transaction(t -> {
+            final var stickyActions = t.execute(c -> c.update(STICKY_ACTION).set(STICKY_ACTION.ACTIVE, false).where(STICKY_ACTION.STICKY_ID.eq(stickyId)));
+            final var sticky = t.execute(c -> c.update(STICKY).set(STICKY.ACTIVE, false).where(STICKY.STICKY_ID.eq(stickyId)));
+            return CompositeFuture.all(stickyActions, sticky).map(true)
+                    .otherwise(e -> {
+                        log.error("Couldn't deactivate sticky", e);
+                        t.rollback();
+                        return false;
+                    });
+        }).onComplete(result);
+    }
+
+    @Override
+    public final void deactivateLocation(String locationId, Handler<AsyncResult<Boolean>> result) {
+        queryExecutor.execute(c -> c.update(LOCATION).set(LOCATION.ACTIVE, false).where(LOCATION.LOCATION_ID.eq(UUID.fromString(locationId))))
+                .map(i -> i == 1)
+                .onComplete(result);
+    }
+
+    @Override
+    public final void deactivateRole(String roleId, Handler<AsyncResult<Boolean>> result) {
+        queryExecutor.execute(c -> c.update(ROLE).set(ROLE.ACTIVE, false).where(ROLE.ROLE_ID.eq(UUID.fromString(roleId))))
+                .map(i -> i == 1)
+                .onComplete(result);
+    }
+
     private Optional<Ticket> rowToTicket(Row r) {
         if (r != null) {
-            final Ticket ticket = rowToTick(r);
-            return Optional.of(ticket);
+            return Optional.of(rowToTick(r));
         }
         return Optional.empty();
     }

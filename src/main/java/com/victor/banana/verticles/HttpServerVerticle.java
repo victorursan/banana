@@ -1,8 +1,9 @@
 package com.victor.banana.verticles;
 
 import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.CreateLocation;
-import com.victor.banana.models.events.Location;
+import com.victor.banana.models.events.locations.CreateLocation;
+import com.victor.banana.models.events.roles.CreateRole;
+import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.CreateAction;
 import com.victor.banana.models.events.stickies.CreateSticky;
@@ -12,6 +13,7 @@ import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.models.requests.ActionSelectedReq;
 import com.victor.banana.models.requests.AddLocationReq;
+import com.victor.banana.models.requests.AddRoleReq;
 import com.victor.banana.models.requests.AddStickyReq;
 import com.victor.banana.models.responses.*;
 import com.victor.banana.services.CartchufiService;
@@ -67,13 +69,69 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/healtz").handler(healthCheck());
         router.get("/api/tickets/:ticketId").handler(this::getTicket);
+
         router.post("/api/stickies").handler(BodyHandler.create()).handler(this::addSticky);
         router.get("/api/stickies/:stickyLocationId").handler(this::scanSticky);
+        router.delete("/api/stickies/:stickyId").handler(this::deleteSticky);
+
         router.post("/api/actions").handler(BodyHandler.create()).handler(this::actionSelected);
+
         router.get("/api/locations").handler(this::getLocations);
         router.post("/api/locations").handler(BodyHandler.create()).handler(this::addLocation);
+        router.delete("/api/locations/:locationId").handler(this::deleteLocation);
+
         router.get("/api/roles").handler(this::getRoles);
+        router.post("/api/roles").handler(BodyHandler.create()).handler(this::addRole);
+        router.delete("/api/roles/:roleId").handler(this::deleteRole);
         return router;
+    }
+
+    private void deleteSticky(RoutingContext rc) {
+        final var stickyId = rc.request().getParam("stickyId");
+        Future.<Boolean>future(f -> cartchufiService.deleteSticky(stickyId, f))
+                .onSuccess(b -> {
+                    if (b) {
+                        rc.response().setStatusCode(204).end();
+                    } else {
+                        rc.response().setStatusCode(500).end();
+                    }
+                })
+                .onFailure(t -> {
+                    log.error("Something went wrong", t);
+                    rc.response().setStatusCode(500).end();
+                });
+    }
+
+    private void deleteLocation(RoutingContext rc) {
+        final var locationId = rc.request().getParam("locationId");
+        Future.<Boolean>future(f -> cartchufiService.deleteLocation(locationId, f))
+                .onSuccess(b -> {
+                    if (b) {
+                        rc.response().setStatusCode(204).end();
+                    } else {
+                        rc.response().setStatusCode(500).end();
+                    }
+                })
+                .onFailure(t -> {
+                    log.error("Something went wrong", t);
+                    rc.response().setStatusCode(500).end();
+                });
+    }
+
+    private void deleteRole(RoutingContext rc) {
+        final var roleId = rc.request().getParam("roleId");
+        Future.<Boolean>future(f -> cartchufiService.deleteRole(roleId, f))
+                .onSuccess(b -> {
+                    if (b) {
+                        rc.response().setStatusCode(204).end();
+                    } else {
+                        rc.response().setStatusCode(500).end();
+                    }
+                })
+                .onFailure(t -> {
+                    log.error("Something went wrong", t);
+                    rc.response().setStatusCode(500).end();
+                });
     }
 
     private HealthCheckHandler healthCheck() {
@@ -171,6 +229,21 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .build();
             cartchufiService.createLocation(createLocation, c);
         }).map(this::locationSerializer)
+                .onSuccess(l -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(l)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(400).end(t.getMessage());
+                });
+    }
+
+    private void addRole(RoutingContext rc) {
+        final var roleReq = rc.getBodyAsJson().mapTo(AddRoleReq.class);
+        Future.<Role>future(c -> {
+            final var createRole = CreateRole.builder()
+                    .type(roleReq.getType())
+                    .build();
+            cartchufiService.createRole(createRole, c);
+        }).map(this::roleSerializer)
                 .onSuccess(l -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
