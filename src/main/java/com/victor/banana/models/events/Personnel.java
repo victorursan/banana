@@ -14,6 +14,8 @@ public class Personnel {
     private String id;
     private String firstName;
     private String lastName;
+    private String locationId;
+    private String roleId;
 
     public Personnel(JsonObject jsonObject) {
         PersonnelConverter.fromJson(jsonObject, this);

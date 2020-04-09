@@ -1,5 +1,6 @@
 package com.victor.banana.models.events.messages;
 
+import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
@@ -14,6 +15,7 @@ public class SendTicketMessage {
     private Long chatId;
     private String ticketId;
     private String ticketMessage;
+    private TicketMessageState ticketMessageState;
 
     public SendTicketMessage(JsonObject jsonObject) {
         SendTicketMessageConverter.fromJson(jsonObject, this);

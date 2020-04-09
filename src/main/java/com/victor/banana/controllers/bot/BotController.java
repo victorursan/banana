@@ -1,12 +1,14 @@
 package com.victor.banana.controllers.bot;
 
 import com.victor.banana.models.events.messages.*;
+import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.CartchufiService;
 import io.vertx.core.Future;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
+import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -19,25 +21,58 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.victor.banana.controllers.bot.KeyboardOptions.*;
+import static com.victor.banana.controllers.bot.KeyboardOptions.getKeyboardFor;
+import static com.victor.banana.controllers.bot.KeyboardOptions.getMessageStateForCallback;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
+import static java.util.function.Function.identity;
 
-public class BotController extends TelegramLongPollingCommandBot {
+public final class BotController extends TelegramLongPollingBot {
     private final static Logger log = LoggerFactory.getLogger(BotController.class);
 
     private final String botUsername;
     private final String botToken;
     private final CartchufiService cartchufiService;
+    private final CommandsHandler commandsHandler;
 
     public BotController(String botUsername, String botToken, CartchufiService cartchufiService) {
         this.botUsername = botUsername;
         this.botToken = botToken;
         this.cartchufiService = cartchufiService;
+        this.commandsHandler = new CommandsHandler(botUsername);
+        commandsHandler.registerCommandWith("my_tickets", "The tickets you acquired and are not solved.",
+                chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.ACQUIRED));
+        commandsHandler.registerCommandWith("open_tickets", "All the tickets that are in pending state",
+                chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.PENDING));
+        commandsHandler.registerCommandWith("check_in", "This will enable receiving notifications",
+                chat -> cartchufiService.checkIn(chat.getId()));
+        commandsHandler.registerCommandWith("check_out", "This will disable receiving notifications",
+                chat -> cartchufiService.checkOut(chat.getId()));
+
+        executeMessages(List.of(new SetMyCommands(commandsHandler.getBotCommands())))
+                .onFailure(t -> log.error("failed register commands", t));
     }
 
     @Override
-    public void processNonCommandUpdate(Update update) {
-        log.info(update.toString());
+    public final void onUpdateReceived(Update update) {
+        if (update.hasMessage()) {
+            final var message = update.getMessage();
+            if (message.isCommand()) {
+                if (!commandsHandler.executeCommand(this, message)) {
+                    //we have received a not registered command, handle it as invalid
+                    processInvalidCommandUpdate(update);
+                }
+                return;
+            }
+        }
+        processNonCommandUpdate(update);
+    }
+
+    private void processInvalidCommandUpdate(Update update) {
+        log.error(String.format("Received unknown update command(shouldn't happen): %s", update.toString()));
+    }
+
+    private void processNonCommandUpdate(Update update) {
+        log.debug(update.toString());
         final var updateMessage = update.getMessage();
         if (update.hasMessage() && updateMessage.hasText()) {
             final var user = updateMessage.getFrom();
@@ -70,7 +105,7 @@ public class BotController extends TelegramLongPollingCommandBot {
                 stm -> new SendMessage()
                         .setChatId(stm.getChatId())
                         .setText(stm.getTicketMessage())
-                        .setReplyMarkup(firstKeyboard()),
+                        .setReplyMarkup(getKeyboardFor(stm.getTicketMessageState())),
                 (stm, recvM) -> SentTicketMessage.builder()
                         .chatId(recvM.getChatId())
                         .messageId(recvM.getMessageId().longValue())
@@ -86,8 +121,13 @@ public class BotController extends TelegramLongPollingCommandBot {
                         .setText(smth.getText())
                         .setMessageId(smth.getMessageId().intValue())
                         .setReplyMarkup(getKeyboardFor(smth.getState())),
-                (s, r) -> SentUpdateMessage.builder()
-                        .build() //todo
+                (s, r) ->
+                        SentUpdateMessage.builder()
+                                .chatId(s.getChatId())
+                                .messageId(s.getMessageId())
+                                .state(s.getState())
+                                .text(s.getText())
+                                .build() //todo
         );
     }
 
@@ -106,6 +146,11 @@ public class BotController extends TelegramLongPollingCommandBot {
         }).collect(Collectors.toList());
         return mergeFutures(recvMessages);
     }
+
+    private <T extends Serializable, M extends BotApiMethod<T>> Future<List<T>> executeMessages(List<M> elements) {
+        return executeMessages(elements, identity(), (a, b) -> b);
+    }
+
 
     @Override
     public String getBotUsername() {

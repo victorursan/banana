@@ -7,9 +7,10 @@ import lombok.Data;
 import java.util.UUID;
 
 @Builder
-@AllArgsConstructor
 @Data
-public class ActionStickyResp {
-    private UUID id;
+@AllArgsConstructor
+public class TicketResp {
+    private UUID ticketId;
     private String message;
+    private String state;
 }

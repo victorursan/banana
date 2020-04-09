@@ -48,6 +48,15 @@ public interface TicketAction {
         };
     }
 
+    public static TicketAction computeFor(Ticket oldTicket, Long chatId, String username) {
+        final var message = messageForState(oldTicket, username);
+        return switch (oldTicket.getState()) {
+            case PENDING -> ticketActionWith(oldTicket, TicketMessageState.UN_ACQUIRED, message, chatId);
+            case ACQUIRED -> ticketActionWith(oldTicket, TicketMessageState.ACQUIRED, message, chatId);
+            case SOLVED -> ticketActionWith(oldTicket, TicketMessageState.SOLVED, message, chatId);
+        };
+    }
+
     private static String messageForState(Ticket ticket, String username) {
         return switch (ticket.getState()) {
             case PENDING -> ticket.getMessage();

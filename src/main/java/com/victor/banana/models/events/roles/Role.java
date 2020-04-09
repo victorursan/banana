@@ -1,4 +1,4 @@
-package com.victor.banana.models.events.stickies;
+package com.victor.banana.models.events.roles;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
@@ -10,21 +10,21 @@ import lombok.Data;
 @AllArgsConstructor
 @Data
 @DataObject(generateConverter = true)
-public class Location {
+public class Role {
     private String id;
-    private String text;
+    private String type;
 
-    public Location(JsonObject jsonObject) {
-        LocationConverter.fromJson(jsonObject, this);
+    public Role(JsonObject jsonObject) {
+        RoleConverter.fromJson(jsonObject, this);
     }
 
     public JsonObject toJson() {
         final var json = new JsonObject();
-        LocationConverter.toJson(this, json);
+        RoleConverter.toJson(this, json);
         return json;
     }
 
-    public static Location fromJson(JsonObject jsonObject) {
-        return new Location(jsonObject);
+    public static Role fromJson(JsonObject jsonObject) {
+        return new Role(jsonObject);
     }
 }

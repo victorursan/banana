@@ -8,8 +8,8 @@ import java.util.List;
 
 @Data
 @NoArgsConstructor
-public class StickyReq {
+public class AddStickyReq {
     private String message;
-    private List<String> actions;
-    private List<String> locations;
+    private List<ActionStickyReq> actions;
+    private List<LocationStickyReq> locations;
 }

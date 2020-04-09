@@ -10,6 +10,7 @@ version '1.0.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    mavenLocal()
 }
 
 sourceSets {
@@ -37,13 +38,13 @@ run {
 }
 
 ext {
-    vertxVersion = '3.8.5'
-    telegrambotsVersion = '4.6'
+    vertxVersion = '3.9.0'
+    telegrambotsVersion = '4.7'
     slf4jVersion = '1.7.30'
     jooqVersion = '3.13.1'
     lombokVersion = '1.18.12'
-    postgresqlVersion = '42.2.11'
-    vertxJooqVersion = '5.1.0'
+    postgresqlVersion = '42.2.12'
+    vertxJooqVersion = '5.1.1'
 }
 
 dependencies {
@@ -81,14 +82,6 @@ dependencies {
     testImplementation group: 'io.vertx', name: 'vertx-junit5', version: vertxVersion
     testCompileOnly group: 'org.projectlombok', name: 'lombok', version: lombokVersion
     testAnnotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
-}
-
-tasks.withType(Test) {
-    jvmArgs += "--enable-preview"
-}
-
-tasks.withType(JavaExec) {
-    jvmArgs += '--enable-preview'
 }
 
 tasks.withType(JavaCompile) {

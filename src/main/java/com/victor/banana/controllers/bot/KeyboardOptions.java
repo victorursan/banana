@@ -11,38 +11,13 @@ import java.util.Optional;
 import static com.victor.banana.controllers.bot.KeyboardOptions.CallbackData.*;
 
 
-public class KeyboardOptions {
-    enum CallbackData {
-        ACQUIRE("acquire"),
-        BACK_ACQUIRE("unAcquired"),
-        SOLVED("resolve"),
-        BACK_RESOLVE("unResolve");
-
-        CallbackData(String data) {
-            this.data = data;
-        }
-        private final String data;
-
-        public static Optional<CallbackData> callbackDataFromString(String str) {
-            return Arrays.stream(CallbackData.values()).filter(c -> c.data.equalsIgnoreCase(str)).findFirst();
-        }
-    }
-
-    private static InlineKeyboardButton acquireButton =  new InlineKeyboardButton("Acquire").setCallbackData(ACQUIRE.data);
-    private static InlineKeyboardButton resolveButton =  new InlineKeyboardButton("Resolve").setCallbackData(SOLVED.data);
-    private static InlineKeyboardButton backButton =  new InlineKeyboardButton("Back").setCallbackData(BACK_ACQUIRE.data);
-    private static InlineKeyboardMarkup emptyKeyboard = new InlineKeyboardMarkup();
-    private static InlineKeyboardMarkup line1 = new InlineKeyboardMarkup(List.of(List.of(acquireButton)));
-    private static InlineKeyboardMarkup line2 = new InlineKeyboardMarkup(List.of(List.of(backButton, resolveButton)));
-
-    public static InlineKeyboardMarkup getKeyboardFor(CallbackData data) {
-        return switch (data) {
-            case ACQUIRE -> line2;
-            case BACK_ACQUIRE -> line1;
-            case SOLVED -> emptyKeyboard;
-            default -> emptyKeyboard;
-        };
-    }
+public final class KeyboardOptions {
+    private static final InlineKeyboardButton acquireButton = new InlineKeyboardButton("Acquire").setCallbackData(ACQUIRE.data);
+    private static final InlineKeyboardButton resolveButton = new InlineKeyboardButton("Resolve").setCallbackData(SOLVED.data);
+    private static final InlineKeyboardButton backButton = new InlineKeyboardButton("Back").setCallbackData(BACK_ACQUIRE.data);
+    private static final InlineKeyboardMarkup emptyKeyboard = new InlineKeyboardMarkup();
+    private static final InlineKeyboardMarkup line1 = new InlineKeyboardMarkup(List.of(List.of(acquireButton)));
+    private static final InlineKeyboardMarkup line2 = new InlineKeyboardMarkup(List.of(List.of(backButton, resolveButton)));
 
     public static InlineKeyboardMarkup getKeyboardFor(TicketMessageState ticketMessageState) {
         return switch (ticketMessageState) {
@@ -65,20 +40,21 @@ public class KeyboardOptions {
         return getMessageStateForCallback(callbackDataFromString(dataStr));
     }
 
-    public static Optional<String> getFormatedMessage(CallbackData data, String personnel) {
-        return switch (data) {
-            case ACQUIRE -> Optional.of("Aquired by @" + personnel);
-            case SOLVED -> Optional.of("Resolved by @" + personnel);
-            default -> Optional.empty();
-        };
-    }
+    enum CallbackData {
+        ACQUIRE("acquire"),
+        BACK_ACQUIRE("unAcquired"),
+        SOLVED("resolve"),
+        BACK_RESOLVE("unResolve");
 
-    public static InlineKeyboardMarkup firstKeyboard() {
-        return line1;
-    }
+        private final String data;
 
-    public static InlineKeyboardMarkup noKeyboard() {
-        return emptyKeyboard;
+        CallbackData(String data) {
+            this.data = data;
+        }
+
+        public static Optional<CallbackData> callbackDataFromString(String str) {
+            return Arrays.stream(CallbackData.values()).filter(c -> c.data.equalsIgnoreCase(str)).findFirst();
+        }
     }
 
 }

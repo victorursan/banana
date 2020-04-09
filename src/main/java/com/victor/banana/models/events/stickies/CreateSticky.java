@@ -1,5 +1,6 @@
 package com.victor.banana.models.events.stickies;
 
+import com.victor.banana.models.events.CreateLocation;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
@@ -14,8 +15,8 @@ import java.util.List;
 @DataObject(generateConverter = true)
 public class CreateSticky {
     private String message;
-    private List<String> actions;
-    private List<String> locations;
+    private List<CreateAction> actions;
+    private List<CreateLocation> locations;
 
     public CreateSticky(JsonObject jsonObject) {
         CreateStickyConverter.fromJson(jsonObject, this);

@@ -5,10 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Builder
 @AllArgsConstructor
 @Data
 public class LocationResp {
-    private String id;
+    private UUID id;
+    private UUID parentLocation;
     private String message;
 }

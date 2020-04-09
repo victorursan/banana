@@ -6,13 +6,14 @@ import lombok.Data;
 import lombok.Singular;
 
 import java.util.List;
+import java.util.UUID;
 
 @Builder
 @AllArgsConstructor
 @Data
 public class StickyLocationResp {
-    private String id;
-    private String locationId;
+    private UUID id;
+    private UUID locationId;
     private String message;
     @Singular
     private List<ActionStickyResp> actions;

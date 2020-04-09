@@ -10,22 +10,21 @@ import lombok.Data;
 @AllArgsConstructor
 @Data
 @DataObject(generateConverter = true)
-public class Action {
-    private String id;
-    private String roleId;
+public class CreateAction {
     private String message;
+    private String roleId;
 
-    public Action(JsonObject jsonObject) {
-        ActionConverter.fromJson(jsonObject, this);
+    public CreateAction(JsonObject jsonObject) {
+        CreateActionConverter.fromJson(jsonObject, this);
     }
 
     public JsonObject toJson() {
         final var json = new JsonObject();
-        ActionConverter.toJson(this, json);
+        CreateActionConverter.toJson(this, json);
         return json;
     }
 
-    public static Action fromJson(JsonObject jsonObject) {
-        return new Action(jsonObject);
+    public static CreateAction fromJson(JsonObject jsonObject) {
+        return new CreateAction(jsonObject);
     }
 }

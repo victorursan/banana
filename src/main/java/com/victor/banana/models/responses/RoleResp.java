@@ -4,11 +4,12 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
+import java.util.UUID;
+
 @Builder
-@Data
 @AllArgsConstructor
-public class TicketRes {
-    private String ticketId;
-    private String message;
-    private String state;
+@Data
+public class RoleResp {
+    private UUID id;
+    private String role;
 }
