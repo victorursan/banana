@@ -45,6 +45,7 @@ ext {
     lombokVersion = '1.18.12'
     postgresqlVersion = '42.2.12'
     vertxJooqVersion = '5.1.1'
+    jacksonVersion = '2.10.3'
 }
 
 dependencies {
@@ -73,6 +74,9 @@ dependencies {
     jooqRuntime group: 'org.postgresql', name: 'postgresql', version: postgresqlVersion
     jooqRuntime group: 'io.github.jklingsporn', name: 'vertx-jooq-generate', version: vertxJooqVersion
     implementation group: 'io.github.jklingsporn', name: 'vertx-jooq-classic-reactive', version: vertxJooqVersion
+
+    //jackson
+    implementation group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jdk8', version: jacksonVersion
 
     // logging
     implementation group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion

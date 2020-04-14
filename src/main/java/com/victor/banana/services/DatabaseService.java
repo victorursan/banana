@@ -33,6 +33,10 @@ public interface DatabaseService {
 
     void addPersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result);
 
+    void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
+
+    void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result);
+
     void addChat(TelegramChannel chat, Handler<AsyncResult<Boolean>> result);
 
     void getChat(Long chatId, Handler<AsyncResult<TelegramChannel>> result);
@@ -80,4 +84,6 @@ public interface DatabaseService {
     void getActiveTicketForActionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
 
     void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
+
+    void getTickets(Handler<AsyncResult<List<Ticket>>> result);
 }

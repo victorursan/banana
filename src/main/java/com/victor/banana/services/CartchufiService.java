@@ -1,6 +1,8 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.UpdatePersonnel;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.locations.Location;
@@ -46,6 +48,8 @@ public interface CartchufiService {
 
     void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
 
+    void getTickets(Handler<AsyncResult<List<Ticket>>> result);
+
     void requestPersonnelTicketsInState(Long chatId, TicketState state);
 
     void checkIn(Long chatId);
@@ -57,6 +61,10 @@ public interface CartchufiService {
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 
     void receivedMessageUpdate(RecvUpdateMessage updateMessage);
+
+    void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
+
+    void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result);
 
     static CartchufiService createProxy(Vertx vertx, String address) {
         return new CartchufiServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);

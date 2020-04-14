@@ -1,7 +1,10 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.actions.TicketAction;
-import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.UpdatePersonnel;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.*;
@@ -22,6 +25,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static io.vertx.core.Future.*;
@@ -119,6 +123,12 @@ public class CartchufiServiceImpl implements CartchufiService {
     @Override
     public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
         Future.<Ticket>future(f -> databaseService.getTicket(ticketId, f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void getTickets(Handler<AsyncResult<List<Ticket>>> result) {
+        Future.future(databaseService::getTickets)
                 .onComplete(result);
     }
 
@@ -227,6 +237,33 @@ public class CartchufiServiceImpl implements CartchufiService {
                         Future.<TelegramChannel>future(channel -> databaseService.getChat(updateMessage.getChatId(), channel))
                                 .flatMap(tc -> transitionTicket(updateMessage.getState(), tick, tc)))
                 .onFailure(t -> log.error(t.getMessage(), t));
+    }
+
+    @Override
+    public final void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result) {
+        Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
+                .flatMap(p -> {
+                    final var pers = Personnel.builder()
+                            .id(personnelId)
+                            .firstName(Optional.ofNullable(updatePersonnel.getFirstName()).orElse(p.getFirstName()))
+                            .lastName(Optional.ofNullable(updatePersonnel.getLastName()).orElse(p.getLastName()))
+                            .roleId(Optional.ofNullable(updatePersonnel.getRoleId()).orElse(p.getRoleId()))
+                            .locationId(Optional.ofNullable(updatePersonnel.getLocationId()).orElse(p.getLocationId()))
+                            .build();
+                    return Future.<Boolean>future(ft -> databaseService.updatePersonnel(pers, ft))
+                            .flatMap(e -> {
+                                if (e) {
+                                    return succeededFuture(pers);
+                                }
+                                return failedFuture("failed to update the personnel");
+                            });
+                }).onComplete(result);
+    }
+
+    @Override
+    public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
+        Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
+                .onComplete(result);
     }
 
     private Future<List<SentUpdateMessage>> transitionTicket(TicketMessageState stateTransition, Ticket tick, TelegramChannel tc) {

@@ -1,7 +1,9 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.jooq.enums.State;
-import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
@@ -29,6 +31,7 @@ import org.jooq.impl.DefaultConfiguration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static com.victor.banana.jooq.Tables.*;
 import static io.vertx.core.Future.failedFuture;
@@ -72,6 +75,37 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
+    public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
+        queryExecutor.findOneRow(c -> c.selectFrom(PERSONNEL)
+                .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnelId))))
+                .flatMap(r -> {
+                    if (r != null) {
+                        final var personnel = Personnel.builder()
+                                .id(r.getUUID(PERSONNEL.PERSONNEL_ID.getName()).toString())
+                                .locationId(r.getUUID(PERSONNEL.LOCATION_ID.getName()).toString())
+                                .roleId(r.getUUID(PERSONNEL.ROLE_ID.getName()).toString())
+                                .firstName(r.getString(PERSONNEL.FIRST_NAME.getName()))
+                                .lastName(r.getString(PERSONNEL.LAST_NAME.getName()))
+                                .build();
+                        return succeededFuture(personnel);
+                    }
+                    return failedFuture("No Row found");
+                }).onComplete(result);
+    }
+
+    @Override
+    public final void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result) {
+        queryExecutor.execute(c -> c.update(PERSONNEL)
+                .set(PERSONNEL.FIRST_NAME, personnel.getFirstName())
+                .set(PERSONNEL.LAST_NAME, personnel.getLastName())
+                .set(PERSONNEL.LOCATION_ID, UUID.fromString(personnel.getLocationId()))
+                .set(PERSONNEL.ROLE_ID, UUID.fromString(personnel.getRoleId()))
+                .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnel.getId()))))
+                .map(i -> i == 1)
+                .onComplete(result);
+    }
+
+    @Override
     public final void getChat(Long chatId, Handler<AsyncResult<TelegramChannel>> result) {
         queryExecutor.findOneRow(c -> c.selectFrom(TELEGRAM_CHANNEL)
                 .where(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId)))
@@ -98,22 +132,20 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var locationIdsRF = t.findOneRow(c -> c.select(LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION).from(LOCATION)
                     .where(LOCATION.LOCATION_ID.eq(UUID.fromString(ticket.getLocationId()))));
             return CompositeFuture.all(roleIdRF, locationIdsRF).flatMap(compositeFuture -> {
-                        if (compositeFuture.succeeded()) {
-                            return t.findManyRow(c -> {
-                                final var rowId = roleIdRF.result().getUUID(STICKY_ACTION.ROLE_ID.getName());
-                                final var locationIds = List.of(locationIdsRF.result().getUUID(LOCATION.LOCATION_ID.getName()), locationIdsRF.result().getUUID(LOCATION.PARENT_LOCATION.getName()));
-                                return c.selectDistinct(TELEGRAM_CHANNEL.CHAT_ID).from(TELEGRAM_CHANNEL)
-                                        .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
-                                        .where(PERSONNEL.ROLE_ID.eq(rowId)
-                                                .and(PERSONNEL.CHECKED_IN.eq(true))
-                                                .and(PERSONNEL.LOCATION_ID.in(locationIds)));
+                if (compositeFuture.succeeded()) {
+                    return t.findManyRow(c -> {
+                        final var rowId = roleIdRF.result().getUUID(STICKY_ACTION.ROLE_ID.getName());
+                        final var locationIds = List.of(locationIdsRF.result().getUUID(LOCATION.LOCATION_ID.getName()), locationIdsRF.result().getUUID(LOCATION.PARENT_LOCATION.getName()));
+                        return c.selectDistinct(TELEGRAM_CHANNEL.CHAT_ID).from(TELEGRAM_CHANNEL)
+                                .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
+                                .where(PERSONNEL.ROLE_ID.eq(rowId)
+                                        .and(PERSONNEL.CHECKED_IN.eq(true))
+                                        .and(PERSONNEL.LOCATION_ID.in(locationIds)));
 
-                            });
-                        } else {
-                            return failedFuture(compositeFuture.cause());
-                        }
-                    }
-            ).flatMap(rows -> {
+                    });
+                }
+                return failedFuture(compositeFuture.cause());
+            }).flatMap(rows -> {
                 if (rows != null) {
                     final var ids = rows.stream()
                             .map(r -> r.getLong(TELEGRAM_CHANNEL.CHAT_ID.getName()))
@@ -142,7 +174,7 @@ public class DatabaseServiceImpl implements DatabaseService {
                 c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
                         .from(TICKET)
                         .where(TICKET.STATE.eq(state)))
-                .map(t -> t.stream().flatMap(r -> rowToTicket(r).stream()).collect(toList()))
+                .map(t -> t.stream().flatMap(r -> rowToTicket(r)).collect(toList()))
                 .onComplete(result);
     }
 
@@ -191,9 +223,8 @@ public class DatabaseServiceImpl implements DatabaseService {
                         .from(TICKET)
                         .innerJoin(CHAT_TICKET_MESSAGE).using(TICKET.TICKET_ID)
                         .innerJoin(TELEGRAM_CHANNEL).on(TELEGRAM_CHANNEL.PERSONNEL_ID.eq(TICKET.AQUIRED_BY))
-                        .where(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId)
-                                .and(TICKET.STATE.eq(state))))
-                .map(t -> t.stream().flatMap(r -> rowToTicket(r).stream()).collect(toList()))
+                        .where(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId).and(TICKET.STATE.eq(state))))
+                .map(t -> t.stream().flatMap(r -> rowToTicket(r)).collect(toList()))
                 .onComplete(result);
     }
 
@@ -379,9 +410,16 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
+    public final void getTickets(Handler<AsyncResult<List<Ticket>>> result) {
+        queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET))
+                .map(l -> l.stream().flatMap(r -> rowToTicket(r)).collect(toList()))
+                .onComplete(result);
+    }
+
+    @Override
     public final void deactivateSticky(String stickyIdS, Handler<AsyncResult<Boolean>> result) {
         final var stickyId = UUID.fromString(stickyIdS);
-        queryExecutor.transaction(t -> {
+        queryExecutor.transaction(t -> { //deactivate locations
             final var stickyActions = t.execute(c -> c.update(STICKY_ACTION).set(STICKY_ACTION.ACTIVE, false).where(STICKY_ACTION.STICKY_ID.eq(stickyId)));
             final var sticky = t.execute(c -> c.update(STICKY).set(STICKY.ACTIVE, false).where(STICKY.STICKY_ID.eq(stickyId)));
             return CompositeFuture.all(stickyActions, sticky).map(true)
@@ -407,11 +445,11 @@ public class DatabaseServiceImpl implements DatabaseService {
                 .onComplete(result);
     }
 
-    private Optional<Ticket> rowToTicket(Row r) {
+    private Stream<Ticket> rowToTicket(Row r) {
         if (r != null) {
-            return Optional.of(rowToTick(r));
+            return Stream.of(rowToTick(r));
         }
-        return Optional.empty();
+        return Stream.empty();
     }
 
     private Ticket rowToTick(Row r) {

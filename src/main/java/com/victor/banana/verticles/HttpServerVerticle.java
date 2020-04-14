@@ -1,9 +1,11 @@
 package com.victor.banana.verticles;
 
 import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.UpdatePersonnel;
 import com.victor.banana.models.events.locations.CreateLocation;
-import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.locations.Location;
+import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.CreateAction;
 import com.victor.banana.models.events.stickies.CreateSticky;
@@ -11,10 +13,7 @@ import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
-import com.victor.banana.models.requests.ActionSelectedReq;
-import com.victor.banana.models.requests.AddLocationReq;
-import com.victor.banana.models.requests.AddRoleReq;
-import com.victor.banana.models.requests.AddStickyReq;
+import com.victor.banana.models.requests.*;
 import com.victor.banana.models.responses.*;
 import com.victor.banana.services.CartchufiService;
 import io.vertx.core.AbstractVerticle;
@@ -32,6 +31,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -69,6 +69,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         router.get("/healtz").handler(healthCheck());
         router.get("/api/tickets/:ticketId").handler(this::getTicket);
+        router.get("/api/tickets").handler(this::getTickets);
 
         router.post("/api/stickies").handler(BodyHandler.create()).handler(this::addSticky);
         router.get("/api/stickies/:stickyLocationId").handler(this::scanSticky);
@@ -83,6 +84,11 @@ public class HttpServerVerticle extends AbstractVerticle {
         router.get("/api/roles").handler(this::getRoles);
         router.post("/api/roles").handler(BodyHandler.create()).handler(this::addRole);
         router.delete("/api/roles/:roleId").handler(this::deleteRole);
+
+        router.put("/api/personnel/:personnelId/update/location").handler(BodyHandler.create()).handler(this::updatePersonnelLocation);
+        router.put("/api/personnel/:personnelId/update/role").handler(BodyHandler.create()).handler(this::updatePersonnelRole);
+        router.get("/api/personnel/:personnelId").handler(this::getPersonnel);
+
         return router;
     }
 
@@ -91,9 +97,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         Future.<Boolean>future(f -> cartchufiService.deleteSticky(stickyId, f))
                 .onSuccess(b -> {
                     if (b) {
-                        rc.response().setStatusCode(204).end();
+                        rc.response().setStatusCode(200).end();
                     } else {
-                        rc.response().setStatusCode(500).end();
+                        rc.response().setStatusCode(404).end();
                     }
                 })
                 .onFailure(t -> {
@@ -107,9 +113,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         Future.<Boolean>future(f -> cartchufiService.deleteLocation(locationId, f))
                 .onSuccess(b -> {
                     if (b) {
-                        rc.response().setStatusCode(204).end();
+                        rc.response().setStatusCode(200).end();
                     } else {
-                        rc.response().setStatusCode(500).end();
+                        rc.response().setStatusCode(404).end();
                     }
                 })
                 .onFailure(t -> {
@@ -123,9 +129,9 @@ public class HttpServerVerticle extends AbstractVerticle {
         Future.<Boolean>future(f -> cartchufiService.deleteRole(roleId, f))
                 .onSuccess(b -> {
                     if (b) {
-                        rc.response().setStatusCode(204).end();
+                        rc.response().setStatusCode(200).end();
                     } else {
-                        rc.response().setStatusCode(500).end();
+                        rc.response().setStatusCode(404).end();
                     }
                 })
                 .onFailure(t -> {
@@ -162,6 +168,16 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var ticketId = rc.request().getParam("ticketId");
         Future.<Ticket>future(f -> cartchufiService.getTicket(ticketId, f))
                 .map(this::ticketSerializer)
+                .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(500).end(t.getMessage());
+                });
+    }
+
+    private void getTickets(RoutingContext rc) {
+        Future.future(cartchufiService::getTickets)
+                .map(f -> f.stream().map(this::ticketSerializer).collect(toList()))
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -300,6 +316,41 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .id(UUID.fromString(role.getId()))
                 .role(role.getType())
                 .build();
+    }
+
+    private void getPersonnel(RoutingContext rc) {
+        final var personnelId = rc.request().getParam("personnelId");
+        Future.<Personnel>future(f -> cartchufiService.getPersonnel(personnelId, f))
+                .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(400).end(t.getMessage());
+                });
+    }
+
+    private void updatePersonnelRole(RoutingContext rc) {
+        final var personnelId = rc.request().getParam("personnelId");
+        final var updatePersRole = rc.getBodyAsJson().mapTo(UpdatePersonnelRoleReq.class).getNewRole();
+        final var updatePers = UpdatePersonnel.builder().roleId(updatePersRole.toString()).build();
+        Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
+                .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(400).end(t.getMessage());
+                });
+    }
+
+    private void updatePersonnelLocation(RoutingContext rc) {
+        final var personnelId = rc.request().getParam("personnelId");
+        final var updatePersLoc = rc.getBodyAsJson().mapTo(UpdatePersonnelLocationReq.class).getNewLocation();
+        final var updatePers = UpdatePersonnel.builder().locationId(updatePersLoc.toString()).build();
+        Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
+                .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(400).end(t.getMessage());
+                });
+
     }
 
 
