@@ -27,6 +27,9 @@ import io.vertx.core.logging.LoggerFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
@@ -44,24 +47,10 @@ public class CartchufiServiceImpl implements CartchufiService {
     @Override
     public final void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result) {
         final var sticky = Sticky.builder()
-                .id(UUID.randomUUID().toString())
+                .id(UUID.randomUUID())
                 .message(createSticky.getMessage())
-                .actions(createSticky.getActions().stream()
-                        .map(action ->
-                                Action.builder()
-                                        .id(UUID.randomUUID().toString())
-                                        .roleId(action.getRoleId())
-                                        .message(action.getMessage())
-                                        .build()
-                        ).collect(toList()))
-                .locations(createSticky.getLocations().stream()
-                        .map(location ->
-                                Location.builder()
-                                        .id(UUID.randomUUID().toString())
-                                        .parentLocation(location.getParentLocation())
-                                        .text(location.getLocation())
-                                        .build()
-                        ).collect(toList()))
+                .actions(createActionsToActions(createSticky.getActions()))
+                .locations(createLocationsToLocations(createSticky.getLocations()))
                 .build();
         Future.<Boolean>future(c ->
                 databaseService.addSticky(sticky, c)
@@ -73,13 +62,37 @@ public class CartchufiServiceImpl implements CartchufiService {
         }).onComplete(result);
     }
 
+    private <F, T> List<T> mapElements(List<F> elements, Function<F, T> mapper) {
+        return elements.stream().map(mapper).collect(toList());
+    }
+
+    private List<Action> createActionsToActions(List<CreateAction> createActions) {
+        return mapElements(createActions, this::createActionToAction);
+    }
+
+    private List<Location> createLocationsToLocations(List<CreateLocation> createLocations) {
+        return mapElements(createLocations, this::createLocationToLocation);
+    }
+
+    private Location createLocationToLocation(CreateLocation location) {
+        return Location.builder()
+                .id(UUID.randomUUID())
+                .parentLocation(location.getParentLocation())
+                .text(location.getLocation())
+                .build();
+    }
+
+    private Action createActionToAction(CreateAction createAction) {
+        return Action.builder()
+                .id(UUID.randomUUID())
+                .roleId(createAction.getRoleId())
+                .message(createAction.getMessage())
+                .build();
+    }
+
     @Override
     public final void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result) {
-        final var location = Location.builder()
-                .id(UUID.randomUUID().toString())
-                .parentLocation(createLocation.getParentLocation())
-                .text(createLocation.getLocation())
-                .build();
+        final var location = createLocationToLocation(createLocation);
         Future.<Boolean>future(f -> databaseService.addLocation(location, f))
                 .flatMap(b -> {
                     if (b) {
@@ -92,7 +105,7 @@ public class CartchufiServiceImpl implements CartchufiService {
     @Override
     public final void createRole(CreateRole createRole, Handler<AsyncResult<Role>> result) {
         final var role = Role.builder()
-                .id(UUID.randomUUID().toString())
+                .id(UUID.randomUUID())
                 .type(createRole.getType())
                 .build();
         Future.<Boolean>future(f -> databaseService.addRole(role, f))
@@ -128,7 +141,7 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     @Override
     public final void getTickets(Handler<AsyncResult<List<Ticket>>> result) {
-        Future.future(databaseService::getTickets)
+        future(databaseService::getTickets)
                 .onComplete(result);
     }
 
@@ -154,7 +167,7 @@ public class CartchufiServiceImpl implements CartchufiService {
         });
     }
 
-    private SendTicketMessage fromTicket(String ticketId, String message, TicketMessageState state, Long chatId) {
+    private SendTicketMessage fromTicket(UUID ticketId, String message, TicketMessageState state, Long chatId) {
         return SendTicketMessage.builder()
                 .chatId(chatId)
                 .ticketId(ticketId)
@@ -202,7 +215,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                     return Future.<StickyAction>future(t -> databaseService.getStickyAction(actionSelected, t))
                             .flatMap(stickyAction -> {
                                 final var ticket = Ticket.builder()
-                                        .id(UUID.randomUUID().toString())
+                                        .id(UUID.randomUUID())
                                         .actionId(stickyAction.getActionId())
                                         .locationId(stickyAction.getLocationId())
                                         .message(String.format("%s | %s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage(), stickyAction.getLocation()))
@@ -244,11 +257,11 @@ public class CartchufiServiceImpl implements CartchufiService {
         Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
                 .flatMap(p -> {
                     final var pers = Personnel.builder()
-                            .id(personnelId)
-                            .firstName(Optional.ofNullable(updatePersonnel.getFirstName()).orElse(p.getFirstName()))
-                            .lastName(Optional.ofNullable(updatePersonnel.getLastName()).orElse(p.getLastName()))
-                            .roleId(Optional.ofNullable(updatePersonnel.getRoleId()).orElse(p.getRoleId()))
-                            .locationId(Optional.ofNullable(updatePersonnel.getLocationId()).orElse(p.getLocationId()))
+                            .id(UUID.fromString(personnelId))
+                            .firstName(updatePersonnel.getFirstName().orElse(p.getFirstName()))
+                            .lastName(updatePersonnel.getLastName().orElse(p.getLastName()))
+                            .roleId(updatePersonnel.getRoleId().orElse(p.getRoleId()))
+                            .locationId(updatePersonnel.getLocationId().orElse(p.getLocationId()))
                             .build();
                     return Future.<Boolean>future(ft -> databaseService.updatePersonnel(pers, ft))
                             .flatMap(e -> {
@@ -273,7 +286,7 @@ public class CartchufiServiceImpl implements CartchufiService {
             return Future.<Boolean>future(t -> databaseService.updateTicket(ticketAction.getTicket(), t))
                     .flatMap(didUpdate -> {
                         if (didUpdate) {
-                            return Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(tick.getId(), i))
+                            return Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(tick.getId().toString(), i))
                                     .map(l -> l.stream()
                                             .map(c -> SendUpdateMessage.builder()
                                                     .chatId(c.getChatId())
@@ -298,14 +311,14 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .build();
 
         Future.<TelegramChannel>future((e -> databaseService.getChat(recvPersonnelMessage.getChatId(), e)))
-                .map(true)
+                .map(i -> true)
                 .recover(t -> {
                     final var personnel = Personnel.builder()
-                            .id(UUID.randomUUID().toString())
+                            .id(UUID.randomUUID())
                             .firstName(recvPersonnelMessage.getFirstName())
                             .lastName(recvPersonnelMessage.getLastName())
-                            .locationId("929abc9f-f34f-4a44-9928-863d9dfbe705")
-                            .roleId("56841b70-d343-445f-b4a7-c0b10ea4e0f6")
+                            .locationId(UUID.fromString("929abc9f-f34f-4a44-9928-863d9dfbe705"))
+                            .roleId(UUID.fromString("56841b70-d343-445f-b4a7-c0b10ea4e0f6"))
                             .build();
                     final var chat = TelegramChannel.builder()
                             .chatId(recvPersonnelMessage.getChatId())
@@ -334,6 +347,41 @@ public class CartchufiServiceImpl implements CartchufiService {
     @Override
     public final void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result) {
         Future.<Boolean>future(f -> databaseService.deactivateSticky(stickyId, f))
+                .onComplete(result);
+    }
+
+    @Override
+    public final void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result) {
+        Future.<Sticky>future(f -> databaseService.getSticky(stickyId, f))
+                .flatMap(s -> {
+                    final var futures = Stream.concat(
+                            update.getActions()
+                                    .map(usa -> Future.<Boolean>future(f ->
+                                            databaseService.updateStickyActions(stickyId,
+                                                    UpdateStickyAction.builder()
+                                                            .add(createActionsToActions(usa.getAdd()))
+                                                            .activate(usa.getActivate())
+                                                            .remove(usa.getRemove())
+                                                            .build(),
+                                                    f)))
+                                    .stream(),
+                            update.getLocations()
+                                    .map(usl -> Future.<Boolean>future(f ->
+                                            databaseService.updateStickyLocation(stickyId,
+                                                    UpdateStickyLocation.builder()
+                                                            .add(createLocationsToLocations(usl.getAdd()))
+                                                            .activate(usl.getActivate())
+                                                            .remove(usl.getRemove())
+                                                            .build(),
+                                                    f)))
+                                    .stream()
+                    ).collect(toList());
+                    if (futures.isEmpty()) {
+                        return succeededFuture(s);
+                    }
+                    return CallbackUtils.mergeFutures(futures).map(r -> r.stream().reduce(Boolean::logicalOr).orElse(true))
+                            .flatMap(ignore ->  future(f -> databaseService.getSticky(stickyId, f)));
+                })
                 .onComplete(result);
     }
 

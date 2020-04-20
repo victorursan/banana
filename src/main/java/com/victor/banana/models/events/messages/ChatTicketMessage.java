@@ -4,28 +4,30 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class ChatTicketMessage {
     private Long messageId;
     private Long chatId;
-    private String ticketId;
+    private UUID ticketId;
 
     public ChatTicketMessage(JsonObject jsonObject) {
-        ChatTicketMessageConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        ChatTicketMessageConverter.toJson(this, json);
-        return json;
-    }
-
-    public static ChatTicketMessage fromJson(JsonObject jsonObject) {
-        return new ChatTicketMessage(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

@@ -2,31 +2,48 @@ package com.victor.banana.models.events;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
-@Data
+import java.util.Optional;
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
+
+@ToString
+@EqualsAndHashCode
 @AllArgsConstructor
 @Builder
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@DataObject
 public class UpdatePersonnel {
     private String firstName;
     private String lastName;
-    private String locationId;
-    private String roleId;
+    private UUID locationId;
+    private UUID roleId;
 
     public UpdatePersonnel(JsonObject jsonObject) {
-        UpdatePersonnelConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        UpdatePersonnelConverter.toJson(this, json);
-        return json;
+        return serializeToJsonObject(this);
     }
 
-    public static UpdatePersonnel fromJson(JsonObject jsonObject) {
-        return new UpdatePersonnel(jsonObject);
+    public Optional<String> getFirstName() {
+        return Optional.ofNullable(firstName);
+    }
+
+    public Optional<String> getLastName() {
+        return Optional.ofNullable(lastName);
+    }
+
+    public Optional<UUID> getLocationId() {
+        return Optional.ofNullable(locationId);
+    }
+
+    public Optional<UUID> getRoleId() {
+        return Optional.ofNullable(roleId);
     }
 }

@@ -4,6 +4,7 @@ import com.victor.banana.models.events.messages.*;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.CartchufiService;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -24,6 +25,7 @@ import java.util.stream.Stream;
 import static com.victor.banana.controllers.bot.KeyboardOptions.getKeyboardFor;
 import static com.victor.banana.controllers.bot.KeyboardOptions.getMessageStateForCallback;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
+import static com.victor.banana.utils.CallbackUtils.sentCallback;
 import static java.util.function.Function.identity;
 
 public final class BotController extends TelegramLongPollingBot {
@@ -137,8 +139,11 @@ public final class BotController extends TelegramLongPollingBot {
         final var recvMessages = elements.stream().flatMap(el -> {
             final var sendMethod = mapper.apply(el);
             try {
-                final var f = Future.succeededFuture(execute(sendMethod)); //todo figure out `executeAsync`
-                return Stream.of(f.map(t -> resultMapper.apply(el, t)));
+                final var x = Promise.<T>promise();
+                executeAsync(sendMethod, sentCallback(x));
+//                final var f = Future.succeededFuture(execute(sendMethod)); //todo figure out `executeAsync`
+                return Stream.of(x.future().map(t -> resultMapper.apply(el, t)));
+//                return Stream.of(f.map(t -> resultMapper.apply(el, t)));
             } catch (TelegramApiException e) {
                 log.error("failed to send message", e);
                 return Stream.of(Future.<R>failedFuture(e));

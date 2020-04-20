@@ -12,6 +12,7 @@ import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.messages.RecvPersonnelMessage;
 import com.victor.banana.models.events.messages.RecvUpdateMessage;
 import com.victor.banana.models.events.stickies.StickyLocation;
+import com.victor.banana.models.events.stickies.UpdateSticky;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.ProxyGen;
@@ -31,6 +32,8 @@ public interface CartchufiService {
     void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result);
 
     void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
+
+    void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result);
 
     void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result);
 

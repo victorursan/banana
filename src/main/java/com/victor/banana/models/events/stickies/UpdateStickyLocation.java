@@ -1,16 +1,15 @@
-package com.victor.banana.models.events.messages;
+package com.victor.banana.models.events.stickies;
 
+import com.victor.banana.models.events.locations.Location;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
-
 
 @Builder
 @AllArgsConstructor
@@ -19,12 +18,15 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class SentTicketMessage {
-    private Long messageId;
-    private Long chatId;
-    private UUID ticketId;
+public class UpdateStickyLocation {
+    @Builder.Default
+    private List<Location> add = List.of();
+    @Builder.Default
+    private List<UUID> activate = List.of();
+    @Builder.Default
+    private List<UUID> remove = List.of();
 
-    public SentTicketMessage(JsonObject jsonObject) {
+    public UpdateStickyLocation(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

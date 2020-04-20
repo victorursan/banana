@@ -4,28 +4,28 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@EqualsAndHashCode
+@NoArgsConstructor
+@Getter
+@ToString
+@DataObject
 public class RecvUpdateMessage {
     private Long chatId;
     private Long messageId;
     private TicketMessageState state;
 
     public RecvUpdateMessage(JsonObject jsonObject) {
-        RecvUpdateMessageConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        RecvUpdateMessageConverter.toJson(this, json);
-        return json;
-    }
-
-    public static RecvUpdateMessage fromJson(JsonObject jsonObject) {
-        return new RecvUpdateMessage(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

@@ -2,30 +2,30 @@ package com.victor.banana.models.events.stickies;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class Action {
-    private String id;
-    private String roleId;
+    private UUID id;
+    private UUID roleId;
     private String message;
 
     public Action(JsonObject jsonObject) {
-        ActionConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        ActionConverter.toJson(this, json);
-        return json;
-    }
-
-    public static Action fromJson(JsonObject jsonObject) {
-        return new Action(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

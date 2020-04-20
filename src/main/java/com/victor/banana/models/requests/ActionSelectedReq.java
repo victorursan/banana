@@ -1,11 +1,15 @@
 package com.victor.banana.models.requests;
 
-import lombok.Data;
+import lombok.*;
 import lombok.NoArgsConstructor;
 
-@Data
+import java.util.UUID;
+
 @NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
 public class ActionSelectedReq {
-    private String actionId;
-    private String locationId;
+    private UUID actionId;
+    private UUID locationId;
 }

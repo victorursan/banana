@@ -4,28 +4,28 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class ChatMessage {
     private Long messageId;
     private Long chatId;
     private String message;
 
     public ChatMessage(JsonObject jsonObject) {
-        ChatMessageConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        ChatMessageConverter.toJson(this, json);
-        return json;
-    }
-
-    public static ChatMessage fromJson(JsonObject jsonObject) {
-        return new ChatMessage(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

@@ -35,7 +35,7 @@ public final class CallbackUtils {
     public static <T> Future<List<T>> mergeFutures(List<Future<T>> futures) {
         final var result = Promise.<List<T>>promise();
         CompositeFuture.join((List) futures)
-                .map(futures.stream()
+                .map(f -> futures.stream()
                         .map(Future::result)
                         .collect(Collectors.toList()))
                 .onComplete(result);

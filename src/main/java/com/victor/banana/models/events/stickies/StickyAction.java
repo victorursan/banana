@@ -2,32 +2,32 @@ package com.victor.banana.models.events.stickies;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class StickyAction {
-    private String actionId;
-    private String locationId;
+    private UUID actionId;
+    private UUID locationId;
     private String stickyMessage;
     private String actionMessage;
     private String location;
 
     public StickyAction(JsonObject jsonObject) {
-        StickyActionConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        StickyActionConverter.toJson(this, json);
-        return json;
-    }
-
-    public static StickyAction fromJson(JsonObject jsonObject) {
-        return new StickyAction(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

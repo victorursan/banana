@@ -4,34 +4,32 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 
 @Builder
 @AllArgsConstructor
 @Data
-@DataObject(generateConverter = true)
+@DataObject
 public class Ticket {
-    private String id;
-    private String actionId;
-    private String locationId;
+    private UUID id;
+    private UUID actionId;
+    private UUID locationId;
     private String message;
     private TicketState state;
-    private String acquiredBy;
-    private String solvedBy;
+    private UUID acquiredBy;
+    private UUID solvedBy;
 
     public Ticket(JsonObject jsonObject) {
-        TicketConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        TicketConverter.toJson(this, json);
-        return json;
+        return serializeToJsonObject(this);
     }
-
-    public static Ticket fromJson(JsonObject jsonObject) {
-        return new Ticket(jsonObject);
-    }
-
 }

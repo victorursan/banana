@@ -4,12 +4,18 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class SendUpdateMessage {
     private Long chatId;
     private Long messageId;
@@ -17,16 +23,10 @@ public class SendUpdateMessage {
     private TicketMessageState state;
 
     public SendUpdateMessage(JsonObject jsonObject) {
-        SendUpdateMessageConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        SendUpdateMessageConverter.toJson(this, json);
-        return json;
-    }
-
-    public static SendUpdateMessage fromJson(JsonObject jsonObject) {
-        return new SendUpdateMessage(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

@@ -3,29 +3,29 @@ package com.victor.banana.models.events.locations;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class CreateLocation {
     private String location;
-    private String parentLocation;
+    private UUID parentLocation;
 
     public CreateLocation(JsonObject jsonObject) {
-        CreateLocationConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        CreateLocationConverter.toJson(this, json);
-        return json;
-    }
-
-    public static CreateLocation fromJson(JsonObject jsonObject) {
-        return new CreateLocation(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

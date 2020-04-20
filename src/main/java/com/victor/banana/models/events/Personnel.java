@@ -4,30 +4,32 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class Personnel {
-    private String id;
+    private UUID id;
     private String firstName;
     private String lastName;
-    private String locationId;
-    private String roleId;
+    private UUID locationId;
+    private UUID roleId;
 
     public Personnel(JsonObject jsonObject) {
-        PersonnelConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        PersonnelConverter.toJson(this, json);
-        return json;
-    }
-
-    public static Personnel fromJson(JsonObject jsonObject) {
-        return new Personnel(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

@@ -2,29 +2,29 @@ package com.victor.banana.models.events;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class ActionSelected {
-    private String actionId;
-    private String locationId;
+    private UUID actionId;
+    private UUID locationId;
 
     public ActionSelected(JsonObject jsonObject) {
-        ActionSelectedConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        ActionSelectedConverter.toJson(this, json);
-        return json;
-    }
-
-    public static ActionSelected fromJson(JsonObject jsonObject) {
-        return new ActionSelected(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

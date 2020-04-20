@@ -3,19 +3,23 @@ package com.victor.banana.models.events.stickies;
 import com.victor.banana.models.events.locations.Location;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.Singular;
+import lombok.*;
 
 import java.util.List;
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class Sticky {
-    private String id;
+    private UUID id;
     private String message;
     @Singular
     private List<Action> actions;
@@ -23,17 +27,10 @@ public class Sticky {
     private List<Location> locations;
 
     public Sticky(JsonObject jsonObject) {
-        StickyConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        StickyConverter.toJson(this, json);
-        return json;
+        return serializeToJsonObject(this);
     }
-
-    public static Sticky fromJson(JsonObject jsonObject) {
-        return new Sticky(jsonObject);
-    }
-
 }

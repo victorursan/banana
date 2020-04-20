@@ -48,7 +48,7 @@ public interface TicketAction {
         };
     }
 
-    public static TicketAction computeFor(Ticket oldTicket, Long chatId, String username) {
+    static TicketAction computeFor(Ticket oldTicket, Long chatId, String username) {
         final var message = messageForState(oldTicket, username);
         return switch (oldTicket.getState()) {
             case PENDING -> ticketActionWith(oldTicket, TicketMessageState.UN_ACQUIRED, message, chatId);

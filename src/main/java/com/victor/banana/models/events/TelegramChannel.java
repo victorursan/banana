@@ -4,29 +4,30 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class TelegramChannel {
     private Long chatId;
-    private String personnelId;
+    private UUID personnelId;
     private String username;
 
     public TelegramChannel(JsonObject jsonObject) {
-        TelegramChannelConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        TelegramChannelConverter.toJson(this, json);
-        return json;
+        return serializeToJsonObject(this);
     }
-
-    public static TelegramChannel fromJson(JsonObject jsonObject) {
-        return new TelegramChannel(jsonObject);
-    }
-
 }

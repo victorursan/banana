@@ -2,14 +2,18 @@ package com.victor.banana.models.events.messages;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class RecvPersonnelMessage {
     private String firstName;
     private String lastName;
@@ -19,16 +23,10 @@ public class RecvPersonnelMessage {
     private String message;
 
     public RecvPersonnelMessage(JsonObject jsonObject) {
-        RecvPersonnelMessageConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        RecvPersonnelMessageConverter.toJson(this, json);
-        return json;
-    }
-
-    public static RecvPersonnelMessage fromJson(JsonObject jsonObject) {
-        return new RecvPersonnelMessage(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

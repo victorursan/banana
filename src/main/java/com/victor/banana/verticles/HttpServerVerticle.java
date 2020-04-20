@@ -7,10 +7,7 @@ import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.roles.Role;
-import com.victor.banana.models.events.stickies.CreateAction;
-import com.victor.banana.models.events.stickies.CreateSticky;
-import com.victor.banana.models.events.stickies.Sticky;
-import com.victor.banana.models.events.stickies.StickyLocation;
+import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.models.requests.*;
@@ -31,14 +28,13 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import io.vertx.ext.web.handler.CorsHandler;
 
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 import static io.vertx.core.http.HttpHeaders.*;
 import static io.vertx.core.http.HttpMethod.GET;
-import static io.vertx.core.http.HttpMethod.POST;
+import static io.vertx.core.http.HttpMethod.*;
 import static java.util.stream.Collectors.toList;
 
 
@@ -63,7 +59,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     private Router routes() {
         final var router = Router.router(vertx);
         final var allowedHeaders = Set.of(ACCESS_CONTROL_ALLOW_ORIGIN.toString(), ORIGIN.toString(), CONTENT_TYPE.toString(), ACCEPT.toString());
-        final var allowedMethods = Set.of(GET, POST);
+        final var allowedMethods = Set.of(GET, POST, PUT, DELETE);
 
         router.route().handler(CorsHandler.create("*").allowedHeaders(allowedHeaders).allowedMethods(allowedMethods));
 
@@ -74,6 +70,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         router.post("/api/stickies").handler(BodyHandler.create()).handler(this::addSticky);
         router.get("/api/stickies/:stickyLocationId").handler(this::scanSticky);
         router.delete("/api/stickies/:stickyId").handler(this::deleteSticky);
+        router.put("/api/stickies/:stickyId").handler(BodyHandler.create()).handler(this::updateSticky);
 
         router.post("/api/actions").handler(BodyHandler.create()).handler(this::actionSelected);
 
@@ -108,9 +105,41 @@ public class HttpServerVerticle extends AbstractVerticle {
                 });
     }
 
+    private void updateSticky(RoutingContext rc) {
+        final var stickyId = rc.request().getParam("stickyId");
+        final var stickyReq = rc.getBodyAsJson().mapTo(UpdateStickyReq.class);
+        final var stickyUpdate = UpdateSticky.builder();
+        stickyReq.getMessage().ifPresent(stickyUpdate::message);
+        stickyReq.getActions().ifPresent(sa -> stickyUpdate.actions(UpdateStickyCreateAction.builder()
+                .add(sa.getAdd().stream()
+                        .map(as -> CreateAction.builder()
+                                .roleId(as.getRoleId())
+                                .message(as.getAction())
+                                .build())
+                        .collect(toList()))
+                .activate(sa.getActivate())
+                .remove(sa.getRemove()).build()));
+        stickyReq.getLocations().ifPresent(sl -> stickyUpdate.locations(UpdateStickyCreateLocation.builder()
+                .add(sl.getAdd().stream()
+                        .map(ls -> CreateLocation.builder()
+                                .location(ls.getLocation())
+                                .parentLocation(ls.getParentLocation())
+                                .build())
+                        .collect(toList()))
+                .activate(sl.getActivate())
+                .remove(sl.getRemove()).build()));
+        Future.<Sticky>future(f -> cartchufiService.updateSticky(UUID.fromString(stickyId).toString(), stickyUpdate.build(), f))
+                .map(this::stickySerializer)
+                .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(500).end(t.getMessage());
+                });
+    }
+
     private void deleteLocation(RoutingContext rc) {
         final var locationId = rc.request().getParam("locationId");
-        Future.<Boolean>future(f -> cartchufiService.deleteLocation(locationId, f))
+        Future.<Boolean>future(f -> cartchufiService.deleteLocation(UUID.fromString(locationId).toString(), f))
                 .onSuccess(b -> {
                     if (b) {
                         rc.response().setStatusCode(200).end();
@@ -149,13 +178,14 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var stickyLocationId = rc.request().getParam("stickyLocationId");
         Future.<StickyLocation>future(c -> cartchufiService.getStickyLocation(stickyLocationId, c))
                 .map(sticky -> StickyLocationResp.builder()
-                        .id(UUID.fromString(sticky.getId()))
+                        .id(sticky.getId())
                         .message(sticky.getMessage())
                         .actions(sticky.getActions().stream().map(a -> ActionStickyResp.builder()
-                                .id(UUID.fromString(a.getId()))
+                                .id(a.getId())
+                                .roleId(a.getRoleId())
                                 .message(a.getMessage())
                                 .build()).collect(toList()))
-                        .locationId(UUID.fromString(sticky.getLocationId()))
+                        .locationId(sticky.getLocationId())
                         .build())
                 .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
@@ -222,7 +252,7 @@ public class HttpServerVerticle extends AbstractVerticle {
 
     private TicketResp ticketSerializer(Ticket t) {
         return TicketResp.builder()
-                .ticketId(UUID.fromString(t.getId()))
+                .ticketId(t.getId())
                 .message(t.getMessage())
                 .state(ticketStateSerializer(t.getState()))
                 .build();
@@ -240,7 +270,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var locationReq = rc.getBodyAsJson().mapTo(AddLocationReq.class);
         Future.<Location>future(c -> {
             final var createLocation = CreateLocation.builder()
-                    .parentLocation(locationReq.getParentLocation().toString())
+                    .parentLocation(locationReq.getParentLocation())
                     .location(locationReq.getMessage())
                     .build();
             cartchufiService.createLocation(createLocation, c);
@@ -275,27 +305,19 @@ public class HttpServerVerticle extends AbstractVerticle {
                     .actions(stickyReq.getActions().stream()
                             .map(asr -> CreateAction.builder()
                                     .message(asr.getAction())
-                                    .roleId(asr.getRoleId().toString())
+                                    .roleId(asr.getRoleId())
                                     .build())
                             .collect(toList()))
                     .locations(stickyReq.getLocations().stream()
                             .map(lsr -> CreateLocation.builder()
                                     .location(lsr.getLocation())
-                                    .parentLocation(lsr.getParentLocation().toString())
+                                    .parentLocation(lsr.getParentLocation())
                                     .build())
                             .collect(toList())
                     )
                     .build();
             cartchufiService.createSticky(createSticky, c);
-        }).map(sticky -> StickyResp.builder()
-                .id(UUID.fromString(sticky.getId()))
-                .message(sticky.getMessage())
-                .actions(sticky.getActions().stream().map(a -> ActionStickyResp.builder()
-                        .id(UUID.fromString(a.getId()))
-                        .message(a.getMessage())
-                        .build()).collect(toList()))
-                .locations(sticky.getLocations().stream().map(this::locationSerializer).collect(toList()))
-                .build())
+        }).map(this::stickySerializer)
                 .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -303,17 +325,30 @@ public class HttpServerVerticle extends AbstractVerticle {
                 });
     }
 
+    private StickyResp stickySerializer(Sticky sticky) {
+        return StickyResp.builder()
+                .id(sticky.getId())
+                .message(sticky.getMessage())
+                .actions(sticky.getActions().stream().map(a -> ActionStickyResp.builder()
+                        .id(a.getId())
+                        .roleId(a.getRoleId())
+                        .message(a.getMessage())
+                        .build()).collect(toList()))
+                .locations(sticky.getLocations().stream().map(this::locationSerializer).collect(toList()))
+                .build();
+    }
+
     private LocationResp locationSerializer(Location location) {
         return LocationResp.builder()
-                .id(UUID.fromString(location.getId()))
-                .parentLocation(UUID.fromString(location.getParentLocation()))
+                .id(location.getId())
+                .parentLocation(location.getParentLocation())
                 .message(location.getText())
                 .build();
     }
 
     private RoleResp roleSerializer(Role role) {
         return RoleResp.builder()
-                .id(UUID.fromString(role.getId()))
+                .id(role.getId())
                 .role(role.getType())
                 .build();
     }
@@ -331,7 +366,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     private void updatePersonnelRole(RoutingContext rc) {
         final var personnelId = rc.request().getParam("personnelId");
         final var updatePersRole = rc.getBodyAsJson().mapTo(UpdatePersonnelRoleReq.class).getNewRole();
-        final var updatePers = UpdatePersonnel.builder().roleId(updatePersRole.toString()).build();
+        final var updatePers = UpdatePersonnel.builder().roleId(updatePersRole).build();
         Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
                 .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
@@ -343,7 +378,7 @@ public class HttpServerVerticle extends AbstractVerticle {
     private void updatePersonnelLocation(RoutingContext rc) {
         final var personnelId = rc.request().getParam("personnelId");
         final var updatePersLoc = rc.getBodyAsJson().mapTo(UpdatePersonnelLocationReq.class).getNewLocation();
-        final var updatePers = UpdatePersonnel.builder().locationId(updatePersLoc.toString()).build();
+        final var updatePers = UpdatePersonnel.builder().locationId(updatePersLoc).build();
         Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
                 .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {

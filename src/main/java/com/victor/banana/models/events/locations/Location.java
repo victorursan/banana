@@ -4,28 +4,30 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.*;
+
+import java.util.UUID;
+
+import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Data
-@DataObject(generateConverter = true)
+@NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
+@DataObject
 public class Location {
-    private String id;
-    private String parentLocation;
+    private UUID id;
+    private UUID parentLocation;
     private String text;
 
     public Location(JsonObject jsonObject) {
-        LocationConverter.fromJson(jsonObject, this);
+        deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
-        final var json = new JsonObject();
-        LocationConverter.toJson(this, json);
-        return json;
-    }
-
-    public static Location fromJson(JsonObject jsonObject) {
-        return new Location(jsonObject);
+        return serializeToJsonObject(this);
     }
 }

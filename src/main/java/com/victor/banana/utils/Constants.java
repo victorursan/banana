@@ -3,7 +3,8 @@ package com.victor.banana.utils;
 import io.vertx.core.eventbus.DeliveryOptions;
 
 public final class Constants {
-    private Constants() {}
+    private Constants() {
+    }
 
     public static class EventbusAddress {
         public static final String DATABASE = "eventbuss.service.database";

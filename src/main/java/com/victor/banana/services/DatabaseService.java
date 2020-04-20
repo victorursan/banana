@@ -6,9 +6,7 @@ import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.roles.Role;
-import com.victor.banana.models.events.stickies.Sticky;
-import com.victor.banana.models.events.stickies.StickyAction;
-import com.victor.banana.models.events.stickies.StickyLocation;
+import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.ProxyGen;
@@ -58,6 +56,12 @@ public interface DatabaseService {
     void getTicketForMessage(Long chatId, Long messageId, Handler<AsyncResult<Ticket>> result);
 
     void addSticky(Sticky sticky, Handler<AsyncResult<Boolean>> result);
+
+    void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+
+    void updateStickyActions(String stickyId, UpdateStickyAction updates, Handler<AsyncResult<Boolean>> result);
+
+    void updateStickyLocation(String stickyId, UpdateStickyLocation updates, Handler<AsyncResult<Boolean>> result);
 
     void deactivateSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
 

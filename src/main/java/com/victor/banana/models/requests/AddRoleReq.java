@@ -1,12 +1,12 @@
 package com.victor.banana.models.requests;
 
-import lombok.Data;
+import lombok.*;
 import lombok.NoArgsConstructor;
 
-import java.util.UUID;
-
-@Data
 @NoArgsConstructor
+@Getter
+@ToString
+@EqualsAndHashCode
 public class AddRoleReq {
     private String type;
 }
