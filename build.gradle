@@ -10,7 +10,6 @@ version '1.0.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-    mavenLocal()
 }
 
 sourceSets {
@@ -59,6 +58,8 @@ dependencies {
     implementation group: 'io.vertx', name: 'vertx-config', version: vertxVersion
     implementation group: 'io.vertx', name: 'vertx-health-check', version: vertxVersion
     implementation group: 'io.vertx', name: 'vertx-pg-client', version: vertxVersion
+    implementation group: 'io.vertx', name: 'vertx-auth-oauth2', version: vertxVersion
+    implementation group: 'io.vertx', name: 'vertx-web-api-contract', version: vertxVersion
 
     implementation group: 'io.vertx', name: 'vertx-service-proxy', version: vertxVersion
     annotationProcessor  group: 'io.vertx', name: 'vertx-service-proxy', version: vertxVersion, classifier: 'processor'

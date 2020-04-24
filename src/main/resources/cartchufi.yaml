@@ -1,0 +1,698 @@
+openapi: "3.0.3"
+info:
+  version: 1.0.0
+  title: Swagger Cartchufi
+servers:
+  - url: http://localhost:8081/api/
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      tags:
+        - health
+      responses:
+        '200':
+          description: The health of each verticle in the system
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthCheck"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/locations:
+    get:
+      summary: Get all locations
+      operationId: getLocations
+      tags:
+        - locations
+      responses:
+        '200':
+          description: A list of all the locations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Locations"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Add a new location
+      operationId: addLocation
+      tags:
+        - locations
+      requestBody:
+        required: true
+        description: The location to be added
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddLocation"
+      responses:
+        '201':
+          description: The location that was added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Location"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/locations/{locationId}:
+    delete:
+      summary: Delete a specific location
+      tags:
+        - locations
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: deleteLocation
+      responses:
+        '204':
+          description: Successfully deactivated the location
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tickets/{ticketId}:
+    get:
+      summary: Get specific ticket
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: getTicket
+      tags:
+        - tickets
+      responses:
+        '200':
+          description: The ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/tickets:
+    get:
+      summary: Get all tickets
+      operationId: getTickets
+      tags:
+        - tickets
+      responses:
+        '200':
+          description: The tickets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tickets"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/stickies/scan/{stickyLocationId}:
+    get:
+      summary: A sticky was scanned
+      parameters:
+        - name: stickyLocationId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: scanSticky
+      tags:
+        - stickies
+      responses:
+        '200':
+          description: The sticky location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanSticky"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/stickies:
+    post:
+      summary: Add a new sticky
+      tags:
+        - stickies
+      operationId: addSticky
+      requestBody:
+        required: true
+        description: The sticky to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddSticky'
+      responses:
+        '200':
+          description: The new sticky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sticky"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/stickies/{stickyId}:
+    put:
+      summary: Update a sticky
+      tags:
+        - stickies
+      parameters:
+        - name: stickyId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: updateSticky
+      requestBody:
+        required: true
+        description: The new sticky attributes
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSticky'
+      responses:
+        '200':
+          description: The updated sticky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sticky"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Delete a sticky
+      tags:
+        - stickies
+      parameters:
+        - name: stickyId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: deleteSticky
+      responses:
+        '204':
+          description: Successfully deactivated the Sticky
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/actions:
+    post:
+      summary: Actions selected
+      tags:
+        - actions
+      operationId: actionSelected
+      requestBody:
+        required: true
+        description: The action selected
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionSelected'
+      responses:
+        '200':
+          description: The newly created ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/roles:
+    get:
+      summary: Get all roles
+      tags:
+        - roles
+      operationId: getRoles
+      responses:
+        '200':
+          description: The new role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Roles"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Add a new role
+      tags:
+        - roles
+      operationId: addRole
+      requestBody:
+        required: true
+        description: The role to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRole'
+      responses:
+        '200':
+          description: The new role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+
+  /api/roles/{roleId}:
+    delete:
+      summary: Delete a role
+      tags:
+        - roles
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: deleteRole
+      responses:
+        '204':
+          description: Successfully deactivated the Sticky
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/personnel/{personnelId}/update/location:
+    put:
+      summary: Update a personnel's location
+      tags:
+        - personnel
+      parameters:
+        - name: personnelId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: updatePersonnelLocation
+      responses:
+        '200':
+          description: The updated personnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Personnel"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/personnel/{personnelId}/update/role:
+    put:
+      summary: Update a personnel's location
+      tags:
+        - personnel
+      parameters:
+        - name: personnelId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: updatePersonnelRole
+      responses:
+        '200':
+          description: The updated personnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Personnel"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/personnel/{personnelId}:
+    get:
+      summary: Update a personnel's location
+      tags:
+        - personnel
+      parameters:
+        - name: personnelId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: getPersonnel
+      responses:
+        '200':
+          description: The personnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Personnel"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    HealthCheck:
+      type: object
+      required:
+        - checks
+        - outcome
+      properties:
+        checks:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - status
+            properties:
+              id:
+                type: string
+              status:
+                type: string
+        outcome:
+          type: string
+
+    Location:
+      type: object
+      required:
+        - id
+        - parentLocation
+        - message
+      properties:
+        id:
+          type: string
+        parentLocation:
+          type: string
+        message:
+          type: string
+
+    Locations:
+      type: array
+      items:
+        $ref: "#/components/schemas/Location"
+
+    AddLocation:
+      type: object
+      required:
+        - parentLocation
+        - location
+      properties:
+        parentLocation:
+          type: string
+        message:
+          type: string
+
+    AddLocations:
+      type: array
+      items:
+        $ref: "#/components/schemas/AddLocation"
+
+    Ticket:
+      type: object
+      required:
+        - ticketId
+        - message
+        - state
+      properties:
+        ticketId:
+          type: string
+        message:
+          type: string
+        state:
+          type: string
+
+    Tickets:
+      type: array
+      items:
+        $ref: "#/components/schemas/Ticket"
+
+    Action:
+      type: object
+      required:
+        - id
+        - roleId
+        - message
+      properties:
+        id:
+          type: string
+        roleId:
+          type: string
+        message:
+          type: string
+
+    Actions:
+      type: array
+      items:
+        $ref: "#/components/schemas/Action"
+
+    ScanSticky:
+      type: object
+      required:
+        - id
+        - locationId
+        - message
+        - actions
+      properties:
+        id:
+          type: string
+        locationId:
+          type: string
+        message:
+          type: string
+        actions:
+          $ref: "#/components/schemas/Actions"
+
+    Sticky:
+      type: object
+      required:
+        - id
+        - message
+        - actions
+        - locations
+      properties:
+        id:
+          type: string
+        message:
+          type: string
+        actions:
+          $ref: "#/components/schemas/Actions"
+        locations:
+          $ref: "#/components/schemas/Locations"
+
+    AddAction:
+      type: object
+      required:
+        - action
+        - roleId
+      properties:
+        action:
+          type: string
+        roleId:
+          type: string
+
+    AddActions:
+      type: array
+      items:
+        $ref: "#/components/schemas/AddAction"
+
+    AddSticky:
+      type: object
+      required:
+        - message
+        - actions
+        - locations
+      properties:
+        message:
+          type: string
+        actions:
+          $ref: "#/components/schemas/AddActions"
+        locations:
+          $ref: "#/components/schemas/AddLocations"
+
+    UpdateActions:
+      type: object
+      properties:
+        add:
+          $ref: "#/components/schemas/AddActions"
+        activate:
+          type: array
+          items:
+            type: string
+        remove:
+          type: array
+          items:
+            type: string
+
+    UpdateLocations:
+      type: object
+      properties:
+        add:
+          $ref: "#/components/schemas/AddLocations"
+        activate:
+          type: array
+          items:
+            type: string
+        remove:
+          type: array
+          items:
+            type: string
+
+    UpdateSticky:
+      type: object
+      properties:
+        message:
+          type: string
+        actions:
+          $ref: "#/components/schemas/UpdateActions"
+        locations:
+          $ref: '#/components/schemas/UpdateLocations'
+
+    ActionSelected:
+      type: object
+      required:
+        - actionId
+        - locationId
+      properties:
+        actionId:
+          type: string
+        locationId:
+          type: string
+
+    AddRole:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+
+    Role:
+      type: object
+      required:
+        - id
+        - role
+      properties:
+        id:
+          type: string
+        role:
+          type: string
+
+    Roles:
+      type: array
+      items:
+        $ref: '#/components/schemas/Role'
+
+    UpdatePersonnelLocation:
+      type: object
+      required:
+        - newLocation
+      properties:
+        newLocation:
+          type: string
+
+    UpdatePersonnelRole:
+      type: object
+      required:
+        - newRole
+      properties:
+        newRole:
+          type: string
+
+    Personnel:
+      type: object
+      required:
+        - id
+        - locationId
+        - roleId
+      properties:
+        id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        locationId:
+          type: string
+        roleId:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string

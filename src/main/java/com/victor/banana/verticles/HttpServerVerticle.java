@@ -25,9 +25,10 @@ import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 import io.vertx.ext.web.handler.CorsHandler;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -46,47 +47,55 @@ public class HttpServerVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
         cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
-        server = vertx.createHttpServer(new HttpServerOptions(vertx.getOrCreateContext().config()))
-                .requestHandler(routes())
-                .listen(l -> startPromise.handle(l.mapEmpty()));
+        routes().onSuccess(router -> server = vertx.createHttpServer(new HttpServerOptions(vertx.getOrCreateContext().config()))
+                .requestHandler(router)
+                .listen(l -> startPromise.handle(l.mapEmpty())))
+                .onFailure(t -> log.error("", t));
+
     }
 
     @Override
     public void stop(Promise<Void> stopPromise) {
-        server.close(stopPromise);
+        Optional.ofNullable(server)
+                .ifPresent(s -> s.close(stopPromise));
     }
 
-    private Router routes() {
-        final var router = Router.router(vertx);
+    private Future<Router> routes() {
         final var allowedHeaders = Set.of(ACCESS_CONTROL_ALLOW_ORIGIN.toString(), ORIGIN.toString(), CONTENT_TYPE.toString(), ACCEPT.toString());
         final var allowedMethods = Set.of(GET, POST, PUT, DELETE);
 
-        router.route().handler(CorsHandler.create("*").allowedHeaders(allowedHeaders).allowedMethods(allowedMethods));
+        return Future.<OpenAPI3RouterFactory>future(f -> OpenAPI3RouterFactory.create(vertx, "src/main/resources/cartchufi.yaml", f))
+                .map(routerFactory -> {
+                    routerFactory.addGlobalHandler(CorsHandler.create("*").allowedHeaders(allowedHeaders).allowedMethods(allowedMethods));
 
-        router.get("/healtz").handler(healthCheck());
-        router.get("/api/tickets/:ticketId").handler(this::getTicket);
-        router.get("/api/tickets").handler(this::getTickets);
+                    routerFactory.addHandlerByOperationId("healthCheck", healthCheck());
 
-        router.post("/api/stickies").handler(BodyHandler.create()).handler(this::addSticky);
-        router.get("/api/stickies/:stickyLocationId").handler(this::scanSticky);
-        router.delete("/api/stickies/:stickyId").handler(this::deleteSticky);
-        router.put("/api/stickies/:stickyId").handler(BodyHandler.create()).handler(this::updateSticky);
+                    routerFactory.addHandlerByOperationId("getLocations", this::getLocations) //todo add failures handler
+                            .addHandlerByOperationId("addLocation", this::addLocation)
+                            .addHandlerByOperationId("deleteLocation", this::deleteLocation);
 
-        router.post("/api/actions").handler(BodyHandler.create()).handler(this::actionSelected);
+                    routerFactory.addHandlerByOperationId("getTicket", this::getTicket)
+                            .addHandlerByOperationId("getTickets", this::getTickets);
 
-        router.get("/api/locations").handler(this::getLocations);
-        router.post("/api/locations").handler(BodyHandler.create()).handler(this::addLocation);
-        router.delete("/api/locations/:locationId").handler(this::deleteLocation);
+                    routerFactory.addHandlerByOperationId("addSticky", this::addSticky)
+                            .addHandlerByOperationId("scanSticky", this::scanSticky)
+                            .addHandlerByOperationId("deleteSticky", this::deleteSticky)
+                            .addHandlerByOperationId("updateSticky", this::updateSticky);
 
-        router.get("/api/roles").handler(this::getRoles);
-        router.post("/api/roles").handler(BodyHandler.create()).handler(this::addRole);
-        router.delete("/api/roles/:roleId").handler(this::deleteRole);
+                    routerFactory.addHandlerByOperationId("actionSelected", this::actionSelected);
 
-        router.put("/api/personnel/:personnelId/update/location").handler(BodyHandler.create()).handler(this::updatePersonnelLocation);
-        router.put("/api/personnel/:personnelId/update/role").handler(BodyHandler.create()).handler(this::updatePersonnelRole);
-        router.get("/api/personnel/:personnelId").handler(this::getPersonnel);
+                    routerFactory.addHandlerByOperationId("getRoles", this::getRoles)
+                            .addHandlerByOperationId("addRole", this::addRole)
+                            .addHandlerByOperationId("deleteRole", this::deleteRole);
 
-        return router;
+                    routerFactory.addHandlerByOperationId("updatePersonnelLocation", this::updatePersonnelLocation)
+                            .addHandlerByOperationId("updatePersonnelRole", this::updatePersonnelRole)
+                            .addHandlerByOperationId("getPersonnel", this::getPersonnel);
+
+                    routerFactory.addFailureHandlerByOperationId("addSticky", t -> log.error(t.getBodyAsJson().toString()));
+
+                    return routerFactory.getRouter();
+                });
     }
 
     private void deleteSticky(RoutingContext rc) {
@@ -271,7 +280,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         Future.<Location>future(c -> {
             final var createLocation = CreateLocation.builder()
                     .parentLocation(locationReq.getParentLocation())
-                    .location(locationReq.getMessage())
+                    .location(locationReq.getLocation())
                     .build();
             cartchufiService.createLocation(createLocation, c);
         }).map(this::locationSerializer)

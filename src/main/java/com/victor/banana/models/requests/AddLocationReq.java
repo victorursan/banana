@@ -11,5 +11,5 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class AddLocationReq {
     private UUID parentLocation;
-    private String message;
+    private String location;
 }
