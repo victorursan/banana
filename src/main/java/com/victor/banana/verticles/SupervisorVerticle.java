@@ -25,7 +25,7 @@ public class SupervisorVerticle extends AbstractVerticle {
     }
 
     private Future<Void> deployVerticles(JsonObject configs) {
-        final var httpConf = configs.getJsonObject("http");
+        final var httpConf = configs.getJsonObject("httpServer");
         final var botConf = configs.getJsonObject("bot");
         final var dbConf = configs.getJsonObject("db");
         DatabindCodec.mapper().registerModule(new Jdk8Module());

@@ -128,27 +128,10 @@ public final class RowMappers {
         };
     }
 
-    public static Function<Row, Stream<Ticket>> rowToTicketS() {
-        return rowToTS(rowToTicket());
-    }
-
     public static <T> Function<List<Row>, List<T>> mapTs(Function<Row, T> mapper) {
         return rows -> rows.stream()
                 .flatMap(rowToTS(mapper))
                 .collect(toList());
-
-    }
-
-    public static Function<Row, Stream<Location>> rowToLocationS() {
-        return rowToTS(rowToLocation());
-    }
-
-    public static Function<Row, Stream<Action>> rowToActionS() {
-        return rowToTS(rowToAction());
-    }
-
-    public static Function<Row, Stream<Role>> rowToRoleS() {
-        return rowToTS(rowToRole());
     }
 
     public static Function<Row, Future<Ticket>> rowToTicketF() {

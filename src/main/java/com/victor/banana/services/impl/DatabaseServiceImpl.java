@@ -21,6 +21,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
 
 import java.util.List;
@@ -92,7 +93,6 @@ public class DatabaseServiceImpl implements DatabaseService {
                 .onComplete(result);
     }
 
-
     @Override
     public final void getChats(Ticket ticket, Handler<AsyncResult<List<Long>>> result) {
         queryExecutor.beginTransaction().flatMap(t -> {
@@ -111,7 +111,6 @@ public class DatabaseServiceImpl implements DatabaseService {
                                 .where(PERSONNEL.ROLE_ID.eq(rowId)
                                         .and(PERSONNEL.CHECKED_IN.eq(true))
                                         .and(PERSONNEL.LOCATION_ID.in(locationIds)));
-
                     });
                 }
                 return failedFuture(compositeFuture.cause());
