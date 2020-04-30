@@ -1,6 +1,6 @@
 package com.victor.banana.controllers.bot;
 
-import com.victor.banana.models.events.messages.TicketMessageState;
+import com.victor.banana.models.events.tickets.TicketState;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 
@@ -19,25 +19,24 @@ public final class KeyboardOptions {
     private static final InlineKeyboardMarkup line1 = new InlineKeyboardMarkup(List.of(List.of(acquireButton)));
     private static final InlineKeyboardMarkup line2 = new InlineKeyboardMarkup(List.of(List.of(backButton, resolveButton)));
 
-    public static InlineKeyboardMarkup getKeyboardFor(TicketMessageState ticketMessageState) {
-        return switch (ticketMessageState) {
-            case UN_ACQUIRED -> line1;
-            case ACQUIRED, UN_SOLVE -> line2;
-            case SOLVED, NO_ACTION -> emptyKeyboard;
+    public static InlineKeyboardMarkup getKeyboardFor(Optional<TicketState> ticketStateOpt) {
+        return ticketStateOpt.map(ticketState -> switch (ticketState) {
+            case PENDING -> line1;
+            case ACQUIRED -> line2;
+            case SOLVED -> emptyKeyboard;
+        }).orElse(emptyKeyboard);
+    }
+
+    public static TicketState getMessageStateForCallback(CallbackData callbackData) {
+        return switch (callbackData) {
+            case ACQUIRE, BACK_RESOLVE -> TicketState.ACQUIRED;
+            case BACK_ACQUIRE -> TicketState.PENDING;
+            case SOLVED -> TicketState.SOLVED;
         };
     }
 
-    public static TicketMessageState getMessageStateForCallback(Optional<CallbackData> dataOpt) {
-        return dataOpt.map(data -> switch (data) {
-            case ACQUIRE -> TicketMessageState.ACQUIRED;
-            case BACK_ACQUIRE -> TicketMessageState.UN_ACQUIRED;
-            case SOLVED -> TicketMessageState.SOLVED;
-            case BACK_RESOLVE -> TicketMessageState.UN_SOLVE;
-        }).orElse(TicketMessageState.NO_ACTION);
-    }
-
-    public static TicketMessageState getMessageStateForCallback(String dataStr) {
-        return getMessageStateForCallback(callbackDataFromString(dataStr));
+    public static Optional<TicketState> getMessageStateForCallback(String dataStr) {
+        return callbackDataFromString(dataStr).map(KeyboardOptions::getMessageStateForCallback);
     }
 
     enum CallbackData {

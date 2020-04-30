@@ -3,6 +3,7 @@ package com.victor.banana.services;
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.Personnel;
 import com.victor.banana.models.events.UpdatePersonnel;
+import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.locations.Location;
@@ -64,6 +65,8 @@ public interface CartchufiService {
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 
     void receivedMessageUpdate(RecvUpdateMessage updateMessage);
+
+    void updateTicketState(UpdateTicketState updateTicketState, Handler<AsyncResult<Ticket>> result);
 
     void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
 

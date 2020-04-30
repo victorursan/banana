@@ -21,6 +21,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
 import org.jooq.DSLContext;
+import org.jooq.TableField;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
 
@@ -259,10 +260,14 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getStickyAction(ActionSelected actionSelected, Handler<AsyncResult<StickyAction>> result) {
-        queryExecutor.findOneRow(c -> c.select(STICKY.MESSAGE.as("sticky_message"), STICKY_ACTION.MESSAGE.as("action_message"), STICKY_LOCATION.MESSAGE.as("location"), STICKY_ACTION.ACTION_ID, STICKY_LOCATION.LOCATION_ID)
+        final var PARENT_LOCATION = LOCATION.as("parent_location");
+        queryExecutor.findOneRow(c -> c.select(STICKY.MESSAGE.as("sticky_message"), STICKY_ACTION.MESSAGE.as("action_message"),
+                PARENT_LOCATION.MESSAGE.as("parent_location"), STICKY_LOCATION.MESSAGE.as("location"), STICKY_ACTION.ACTION_ID, STICKY_LOCATION.LOCATION_ID)
                 .from(STICKY_ACTION)
                 .innerJoin(STICKY).using(STICKY_ACTION.STICKY_ID)
                 .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
+                .innerJoin(LOCATION).using(STICKY_LOCATION.LOCATION_ID)
+                .innerJoin(PARENT_LOCATION).on(LOCATION.PARENT_LOCATION.eq(PARENT_LOCATION.LOCATION_ID))
                 .where(STICKY_ACTION.ACTION_ID.eq(actionSelected.getActionId()))
                 .and(STICKY_LOCATION.LOCATION_ID.eq(actionSelected.getLocationId()))
                 .and(STICKY.ACTIVE.eq(true)))
@@ -424,8 +429,8 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void updateTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result) {
         queryExecutor.execute(c ->
                 c.update(TICKET)
-                        .set(TICKET.AQUIRED_BY, ticket.getAcquiredBy())
-                        .set(TICKET.SOLVED_BY, ticket.getSolvedBy())
+                        .set(TICKET.AQUIRED_BY, ticket.getAcquiredBy().orElse(null))
+                        .set(TICKET.SOLVED_BY, ticket.getSolvedBy().orElse(null))
                         .set(TICKET.STATE, ticketStateToState(ticket.getState()))
                         .where(TICKET.TICKET_ID.eq(ticket.getId())))
                 .map(i -> i == 1)

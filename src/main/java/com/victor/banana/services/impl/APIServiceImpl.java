@@ -3,6 +3,7 @@ package com.victor.banana.services.impl;
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.Personnel;
 import com.victor.banana.models.events.UpdatePersonnel;
+import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.roles.CreateRole;
@@ -22,8 +23,10 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 
+import java.util.Optional;
 import java.util.UUID;
 
+import static com.victor.banana.models.events.tickets.TicketState.*;
 import static java.util.stream.Collectors.toList;
 
 public class APIServiceImpl implements APIService {
@@ -43,7 +46,8 @@ public class APIServiceImpl implements APIService {
                     .addHandlerByOperationId("deleteLocation", this::deleteLocation);
 
             routerFactory.addHandlerByOperationId("getTicket", this::getTicket)
-                    .addHandlerByOperationId("getTickets", this::getTickets);
+                    .addHandlerByOperationId("getTickets", this::getTickets)
+                    .addHandlerByOperationId("updateTicket", this::updateTicket);
 
             routerFactory.addHandlerByOperationId("addSticky", this::addSticky)
                     .addHandlerByOperationId("scanSticky", this::scanSticky)
@@ -178,6 +182,27 @@ public class APIServiceImpl implements APIService {
                 });
     }
 
+    private void updateTicket(RoutingContext rc) {
+        final var ticketId = rc.request().getParam("ticketId");
+        final var updateTicketReq = rc.getBodyAsJson().mapTo(UpdateTicketReq.class);
+
+        Future.<Ticket>future(f -> {
+            final var updateTicketState = UpdateTicketState.builder()
+                    .ticketId(UUID.fromString(ticketId))
+                    .newTicketState(ticketStateDeserializer(updateTicketReq.getNewState()).orElseThrow()) //todo
+                    //todo figure out .personnelId()
+                    .personnelId(UUID.fromString("cf338d20-073a-4f28-ad68-a104d02eef9d"))
+                    .build();
+            cartchufiService.updateTicketState(updateTicketState, f);
+        })
+                .map(this::ticketSerializer)
+                .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                .onFailure(t -> {
+                    log.error(t.getMessage(), t);
+                    rc.response().setStatusCode(500).end(t.getMessage());
+                });
+    }
+
     private void getTickets(RoutingContext rc) {
         Future.future(cartchufiService::getTickets)
                 .map(f -> f.stream().map(this::ticketSerializer).collect(toList()))
@@ -236,6 +261,15 @@ public class APIServiceImpl implements APIService {
             case ACQUIRED -> "Acquired";
             case SOLVED -> "Solved";
             case PENDING -> "Pending";
+        };
+    }
+
+    private Optional<TicketState> ticketStateDeserializer(String ticketState) {
+        return switch (ticketState) {
+            case "Acquired" -> Optional.of(ACQUIRED);
+            case "Solved" -> Optional.of(SOLVED);
+            case "Pending" -> Optional.of(PENDING);
+            default -> Optional.empty();
         };
     }
 

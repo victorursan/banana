@@ -83,7 +83,7 @@ public final class BotController extends TelegramLongPollingBot {
                     .messageId(updateMessage.getMessageId().longValue())
                     .firstName(user.getFirstName())
                     .lastName(user.getLastName())
-                    .username(user.getUserName())
+                    .username(String.format("@%s", user.getUserName()))
                     .message(updateMessage.getText())
                     .build();
             cartchufiService.receivedPersonnelMessage(personnelMessage);
@@ -92,13 +92,16 @@ public final class BotController extends TelegramLongPollingBot {
             final var callbackqueryMessage = callbackquery.getMessage();
             final var chatId = callbackqueryMessage.getChatId();
             final var messageId = callbackqueryMessage.getMessageId();
-            final var messageState = getMessageStateForCallback(callbackquery.getData());
-            final var recvUpdateMessage = RecvUpdateMessage.builder()
-                    .messageId(messageId.longValue())
-                    .chatId(chatId)
-                    .state(messageState)
-                    .build();
-            cartchufiService.receivedMessageUpdate(recvUpdateMessage);
+            final var messageStateOpt = getMessageStateForCallback(callbackquery.getData());
+            messageStateOpt.ifPresentOrElse(messageState -> {
+                final var recvUpdateMessage = RecvUpdateMessage.builder()
+                        .messageId(messageId.longValue())
+                        .chatId(chatId)
+                        .state(messageState)
+                        .build();
+                cartchufiService.receivedMessageUpdate(recvUpdateMessage);
+            }, () -> log.error("Invalid message state."));
+
         }
     }
 
@@ -107,7 +110,7 @@ public final class BotController extends TelegramLongPollingBot {
                 stm -> new SendMessage()
                         .setChatId(stm.getChatId())
                         .setText(stm.getTicketMessage())
-                        .setReplyMarkup(getKeyboardFor(stm.getTicketMessageState())),
+                        .setReplyMarkup(getKeyboardFor(stm.getTicketState())),
                 (stm, recvM) -> SentTicketMessage.builder()
                         .chatId(recvM.getChatId())
                         .messageId(recvM.getMessageId().longValue())
@@ -139,11 +142,9 @@ public final class BotController extends TelegramLongPollingBot {
         final var recvMessages = elements.stream().flatMap(el -> {
             final var sendMethod = mapper.apply(el);
             try {
-                final var x = Promise.<T>promise();
-                executeAsync(sendMethod, sentCallback(x));
-//                final var f = Future.succeededFuture(execute(sendMethod)); //todo figure out `executeAsync`
-                return Stream.of(x.future().map(t -> resultMapper.apply(el, t)));
-//                return Stream.of(f.map(t -> resultMapper.apply(el, t)));
+                final var promise = Promise.<T>promise();
+                executeAsync(sendMethod, sentCallback(promise));
+                return Stream.of(promise.future().map(t -> resultMapper.apply(el, t)));
             } catch (TelegramApiException e) {
                 log.error("failed to send message", e);
                 return Stream.of(Future.<R>failedFuture(e));

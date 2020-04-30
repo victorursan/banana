@@ -58,6 +58,9 @@ BEFORE UPDATE ON personnel
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
+INSERT INTO personnel (personnel_id, checked_in, location_id, role_id)
+VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d', true, '929abc9f-f34f-4a44-9928-863d9dfbe705', '53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1');
+
 CREATE TABLE sticky (
     sticky_id UUID NOT NULL PRIMARY KEY,
     message TEXT NOT NULL,

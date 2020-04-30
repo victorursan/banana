@@ -16,6 +16,7 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.sqlclient.Row;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -32,8 +33,8 @@ public final class RowMappers {
                 .id(r.getUUID(TICKET.TICKET_ID.getName()))
                 .actionId(r.getUUID(TICKET.ACTION_ID.getName()))
                 .locationId(r.getUUID(TICKET.LOCATION_ID.getName()))
-                .acquiredBy(r.getUUID(TICKET.AQUIRED_BY.getName()))
-                .solvedBy(r.getUUID(TICKET.SOLVED_BY.getName()))
+                .acquiredBy(Optional.ofNullable(r.getUUID(TICKET.AQUIRED_BY.getName())))
+                .solvedBy(Optional.ofNullable(r.getUUID(TICKET.SOLVED_BY.getName())))
                 .message(r.getString(TICKET.MESSAGE.getName()))
                 .state(ticketToTicketState(State.valueOf(r.getString(TICKET.STATE.getName()))))
                 .build();
@@ -55,6 +56,7 @@ public final class RowMappers {
                 .locationId(r.getUUID(STICKY_LOCATION.LOCATION_ID.getName()))
                 .actionMessage(r.getString("action_message"))
                 .stickyMessage(r.getString("sticky_message"))
+                .parentLocation(r.getString("parent_location"))
                 .location(r.getString("location"))
                 .build();
     }

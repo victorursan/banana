@@ -1,10 +1,7 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.actions.TicketAction;
-import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.Personnel;
-import com.victor.banana.models.events.TelegramChannel;
-import com.victor.banana.models.events.UpdatePersonnel;
+import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.*;
@@ -28,9 +25,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.victor.banana.models.events.tickets.TicketState.*;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
 
@@ -167,12 +164,12 @@ public class CartchufiServiceImpl implements CartchufiService {
         });
     }
 
-    private SendTicketMessage fromTicket(UUID ticketId, String message, TicketMessageState state, Long chatId) {
+    private SendTicketMessage fromTicket(UUID ticketId, String message, Optional<TicketState> state, Long chatId) {
         return SendTicketMessage.builder()
                 .chatId(chatId)
                 .ticketId(ticketId)
                 .ticketMessage(message)
-                .ticketMessageState(state)
+                .ticketState(state)
                 .build();
     }
 
@@ -181,7 +178,7 @@ public class CartchufiServiceImpl implements CartchufiService {
         Future.<Boolean>future(f -> databaseService.setCheckedIn(chatId, true, f))
                 .onSuccess(b -> {
                     if (b) {
-                        requestPersonnelTicketsInState(chatId, TicketState.PENDING);
+                        requestPersonnelTicketsInState(chatId, PENDING);
                     } else {
                         log.error("Failed to check in :(");
                     }
@@ -197,11 +194,11 @@ public class CartchufiServiceImpl implements CartchufiService {
                         return Future.<List<Ticket>>future(f -> databaseService.getTicketsInStateForChat(chatId, TicketState.ACQUIRED, f))
                                 .flatMap(tickets -> Future.<TelegramChannel>future(channel -> databaseService.getChat(chatId, channel))
                                         .flatMap((TelegramChannel tc) -> {
-                                            final var sentTickets = tickets.stream().map(ticket -> transitionTicket(TicketMessageState.UN_ACQUIRED, ticket, tc)).collect(toList());
+                                            final var sentTickets = tickets.stream().map(ticket -> transitionTicket(ticket, PENDING, tc)).collect(toList());
                                             return CallbackUtils.mergeFutures(sentTickets).map(l -> l.stream().flatMap(List::stream).collect(toList()));
                                         }));
                     } else {
-                        return failedFuture("Failed to check in :(");
+                        return failedFuture("Failed to check out :(");
                     }
                 }).onFailure(t -> log.error(t.getMessage(), t.getCause()));
     }
@@ -218,8 +215,8 @@ public class CartchufiServiceImpl implements CartchufiService {
                                         .id(UUID.randomUUID())
                                         .actionId(stickyAction.getActionId())
                                         .locationId(stickyAction.getLocationId())
-                                        .message(String.format("%s | %s | %s", stickyAction.getStickyMessage(), stickyAction.getActionMessage(), stickyAction.getLocation()))
-                                        .state(TicketState.PENDING)
+                                        .message(String.format("%s | %s | %s | %s", stickyAction.getParentLocation(), stickyAction.getLocation(), stickyAction.getStickyMessage(), stickyAction.getActionMessage()))
+                                        .state(PENDING)
                                         .build();
                                 final var affectedChatsF = chatsForTicket(ticket);
                                 final var ticketF = Future.<Boolean>future(t -> databaseService.addTicket(ticket, t));
@@ -227,7 +224,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                                         .onSuccess(s -> {
                                             if (!affectedChatsF.result().isEmpty()) {
                                                 final var sendMessages = affectedChatsF.result().stream().map(chatId ->
-                                                        fromTicket(ticket.getId(), ticket.getMessage(), TicketMessageState.UN_ACQUIRED, chatId))
+                                                         fromTicket(ticket.getId(), ticket.getMessage(), Optional.of(PENDING), chatId))
                                                         .collect(toList());
                                                 Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
                                                         .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
@@ -248,8 +245,27 @@ public class CartchufiServiceImpl implements CartchufiService {
         Future.<Ticket>future(ct -> databaseService.getTicketForMessage(updateMessage.getChatId(), updateMessage.getMessageId(), ct))
                 .flatMap(tick ->
                         Future.<TelegramChannel>future(channel -> databaseService.getChat(updateMessage.getChatId(), channel))
-                                .flatMap(tc -> transitionTicket(updateMessage.getState(), tick, tc)))
+                                .flatMap(tc -> transitionTicket(tick, updateMessage.getState(), tc)))
                 .onFailure(t -> log.error(t.getMessage(), t));
+    }
+
+    @Override
+    public final void updateTicketState(UpdateTicketState updateTicketState, Handler<AsyncResult<Ticket>> result) {
+        Future.<Ticket>future(f -> databaseService.getTicket(updateTicketState.getTicketId().toString(), f))
+                .flatMap(ticket -> {
+                    final var ticketAction = TicketAction.computeFor(ticket, updateTicketState.getNewTicketState(), "Community Team", updateTicketState.getPersonnelId()); //todo figure out username
+                    processTicketAction(ticketAction).onFailure(t -> log.error(t.getMessage(), t));
+
+                    return Future.<Boolean>future(f -> databaseService.updateTicket(ticketAction.getTicket(), f))
+                            .flatMap(s -> {
+                                if (s) {
+                                    return succeededFuture(ticket);
+                                }
+                                return failedFuture("Failed to update ticket");
+                            });
+                })
+                .onComplete(result);
+
     }
 
     @Override
@@ -279,27 +295,28 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onComplete(result);
     }
 
-    private Future<List<SentUpdateMessage>> transitionTicket(TicketMessageState stateTransition, Ticket tick, TelegramChannel tc) {
-        final var ticketActionOpt = TicketAction.computeFor(tick, stateTransition, tc);
-        if (ticketActionOpt.isPresent()) {
-            final var ticketAction = ticketActionOpt.get();
-            return Future.<Boolean>future(t -> databaseService.updateTicket(ticketAction.getTicket(), t))
-                    .flatMap(didUpdate -> {
-                        if (didUpdate) {
-                            return Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(tick.getId().toString(), i))
-                                    .map(l -> l.stream()
-                                            .map(c -> SendUpdateMessage.builder()
-                                                    .chatId(c.getChatId())
-                                                    .messageId(c.getMessageId())
-                                                    .state(ticketAction.getMessageStateForChat(c.getChatId()))
-                                                    .text(ticketAction.getMessage())
-                                                    .build())
-                                            .collect(toList()));
-                        }
-                        return failedFuture("Ticket was not updated");
-                    }).flatMap(updates -> future(f -> botService.updateMessages(updates, f)));
-        }
-        return failedFuture(String.format("Invalid Transition for [%s] + [%s] + [%s]", tick, stateTransition, tc)); //todo
+    private Future<List<SentUpdateMessage>> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
+        final var ticketActionOpt = TicketAction.computeFor(ticket, newTicketState, tc);
+        return ticketActionOpt.map(this::processTicketAction)
+                .orElse(failedFuture(String.format("Invalid Transition for [%s] + [%s] + [%s]", ticket, newTicketState, tc))); //todo
+    }
+
+    private Future<List<SentUpdateMessage>> processTicketAction(TicketAction ticketAction) {
+        return Future.<Boolean>future(t -> databaseService.updateTicket(ticketAction.getTicket(), t))
+                .flatMap(didUpdate -> {
+                    if (didUpdate) {
+                        return Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(ticketAction.getTicket().getId().toString(), i))
+                                .map(l -> l.stream()
+                                        .map(c -> SendUpdateMessage.builder()
+                                                .chatId(c.getChatId())
+                                                .messageId(c.getMessageId())
+                                                .state(ticketAction.getMessageStateForChat(c.getChatId()))
+                                                .text(ticketAction.getMessage())
+                                                .build())
+                                        .collect(toList()));
+                    }
+                    return failedFuture("Could not update ticket");
+                }).flatMap(updates -> Future.future(f -> botService.updateMessages(updates, f)));
     }
 
     @Override
@@ -380,7 +397,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                         return succeededFuture(s);
                     }
                     return CallbackUtils.mergeFutures(futures).map(r -> r.stream().reduce(Boolean::logicalOr).orElse(true))
-                            .flatMap(ignore ->  future(f -> databaseService.getSticky(stickyId, f)));
+                            .flatMap(ignore -> future(f -> databaseService.getSticky(stickyId, f)));
                 })
                 .onComplete(result);
     }

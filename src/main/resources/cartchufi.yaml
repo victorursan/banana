@@ -3,7 +3,7 @@ info:
   version: 1.0.0
   title: Swagger Cartchufi
 servers:
-  - url: http://localhost:8081/
+  - url: http://localhost:8081/api/
 paths:
   /locations:
     get:
@@ -87,6 +87,37 @@ paths:
       responses:
         '200':
           description: The ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update ticket
+      parameters:
+        - name: ticketId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: updateTicket
+      tags:
+        - tickets
+      requestBody:
+        required: true
+        description: The new ticket attributes
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTicket'
+      responses:
+        '200':
+          description: The ticket was updated
           content:
             application/json:
               schema:
@@ -643,6 +674,14 @@ components:
       type: object
       required:
         - newRole
+      properties:
+        newRole:
+          type: string
+
+    UpdateTicket:
+      type: object
+      required:
+        - newState
       properties:
         newRole:
           type: string

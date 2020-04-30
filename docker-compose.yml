@@ -14,7 +14,7 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: jboss/keycloak:9.0.3
+    image: jboss/keycloak:10.0.0
     environment:
       DB_VENDOR: POSTGRES
       DB_ADDR: db

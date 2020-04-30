@@ -38,7 +38,7 @@ run {
 
 ext {
     vertxVersion = '3.9.0'
-    telegrambotsVersion = '4.7'
+    telegrambotsVersion = '4.8.1'
     slf4jVersion = '1.7.30'
     jooqVersion = '3.13.1'
     lombokVersion = '1.18.12'

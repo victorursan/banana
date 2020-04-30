@@ -86,7 +86,7 @@ public class HttpServerVerticle extends AbstractVerticle {
                         sessionHandler.setAuthProvider(oauth2Auth);
 
 
-                        router.route("/api/*").handler(oauth2);
+//                        router.route("/api/*").handler(oauth2); //todo
                         router.mountSubRouter("/api", subrouter);
                         router.get("/logout").handler(this::handleLogout);
 
@@ -117,14 +117,13 @@ public class HttpServerVerticle extends AbstractVerticle {
     private void handleLogout(RoutingContext ctx) {
         final var oAuth2Token = (OAuth2TokenImpl) ctx.user();
         oAuth2Token.logout(res -> {
-
             if (!res.succeeded()) {
                 // the user might not have been logged out, to know why:
-                log.error("", res.cause());
+                log.error("lailed to logout user", res.cause());
                 ctx.response().setStatusCode(500).end("Logout failed");
                 return;
             }
-
+            oAuth2Token.clearCache();
             ctx.session().destroy();
             ctx.response().putHeader("location", "/?logout=true").setStatusCode(302).end();
         });

@@ -22,6 +22,7 @@ public class StickyAction {
     private String stickyMessage;
     private String actionMessage;
     private String location;
+    private String parentLocation;
 
     public StickyAction(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
