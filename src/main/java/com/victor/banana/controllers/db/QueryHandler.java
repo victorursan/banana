@@ -7,6 +7,7 @@ import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
+import com.victor.banana.models.events.stickies.ActionUpdate;
 import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.tickets.Ticket;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
@@ -32,25 +33,62 @@ public final class QueryHandler {
     private static final Logger log = LoggerFactory.getLogger(QueryHandler.class);
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addStickyActionsQ(UUID stickyId, List<Action> actions) {
-        return t -> t.execute(c -> {
-            final var insert = c.insertInto(STICKY_ACTION, STICKY_ACTION.ACTION_ID, STICKY_ACTION.STICKY_ID, STICKY_ACTION.ROLE_ID, STICKY_ACTION.MESSAGE);
-            actions.forEach(action -> insert.values(action.getId(), stickyId, action.getRoleId(), action.getMessage()));
-            return insert;
-        })
-                .map(i -> i == actions.size())
-                .recover(e -> actions.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (actions.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return t.execute(c -> {
+                final var insert = c.insertInto(STICKY_ACTION, STICKY_ACTION.ACTION_ID, STICKY_ACTION.STICKY_ID, STICKY_ACTION.ROLE_ID, STICKY_ACTION.MESSAGE);
+                actions.forEach(action -> insert.values(action.getId(), stickyId, action.getRoleId(), action.getMessage()));
+                return insert;
+            })
+                    .map(i -> i == actions.size());
+        };
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> activateActionsQ(List<UUID> toActivate) {
-        return t -> t.execute(c -> c.update(STICKY_ACTION).set(STICKY_ACTION.ACTIVE, true).where(STICKY_ACTION.ACTION_ID.in(toActivate)))
-                .map(i -> i == toActivate.size())
-                .recover(e -> toActivate.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (toActivate.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return t.execute(c -> c.update(STICKY_ACTION).set(STICKY_ACTION.ACTIVE, true).where(STICKY_ACTION.ACTION_ID.in(toActivate)))
+                    .map(i -> i == toActivate.size());
+        };
+    }
+
+    public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> updateStickyActionQ(Action actionUpdate) {
+        return t -> t.execute(c ->
+                c.update(STICKY_ACTION)
+                        .set(STICKY_ACTION.ROLE_ID, actionUpdate.getRoleId())
+                        .set(STICKY_ACTION.MESSAGE, actionUpdate.getMessage())
+                        .where(STICKY_ACTION.ACTION_ID.eq(actionUpdate.getId())))
+                .map(i -> i == 1);
+    }
+
+    public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> updateStickyLocationQ(Location locationUpdate) {
+        return t -> t.execute(c -> c.update(STICKY_LOCATION) //todo rethink
+                .set(STICKY_LOCATION.MESSAGE, locationUpdate.getText())
+                .where(STICKY_LOCATION.LOCATION_ID.eq(locationUpdate.getId())))
+                .flatMap(i -> {
+                    if (i == 1) {
+                        return t.execute(cc -> cc.update(LOCATION)
+                                .set(LOCATION.MESSAGE, locationUpdate.getText())
+                                .set(LOCATION.PARENT_LOCATION, locationUpdate.getParentLocation())
+                                .where(LOCATION.LOCATION_ID.eq(locationUpdate.getId())))
+                                .map(ii -> ii == 1);
+                    }
+                    return Future.succeededFuture(false);
+                });
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateActionsQ(List<UUID> toDeactivate) {
-        return t -> activateActionsWhere(STICKY_ACTION.ACTION_ID.in(toDeactivate)).apply(t)
-                .map(i -> i == toDeactivate.size())
-                .recover(e -> toDeactivate.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (toDeactivate.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return activateActionsWhere(STICKY_ACTION.ACTION_ID.in(toDeactivate)).apply(t)
+                    .map(i -> i == toDeactivate.size());
+        };
     }
 
     private static Function<ReactiveClassicGenericQueryExecutor, Future<Integer>> activateActionsWhere(Condition condition) {
@@ -77,10 +115,14 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateStickyLocationsQ(List<UUID> toDeactivate) {
-        return t -> deactivateStickyLocationsWhere(STICKY_LOCATION.LOCATION_ID.eq(LOCATION.LOCATION_ID)
-                .and(LOCATION.LOCATION_ID.in(toDeactivate))).apply(t)
-                .map(i -> i == toDeactivate.size())
-                .recover(e -> toDeactivate.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (toDeactivate.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return deactivateStickyLocationsWhere(STICKY_LOCATION.LOCATION_ID.eq(LOCATION.LOCATION_ID)
+                    .and(LOCATION.LOCATION_ID.in(toDeactivate))).apply(t)
+                    .map(i -> i == toDeactivate.size());
+        };
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateStickyLocationsQ(UUID stickyId) {
@@ -94,9 +136,13 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateLocationsQ(List<UUID> locationIds) {
-        return t -> t.execute(c -> c.update(LOCATION).set(LOCATION.ACTIVE, false).where(LOCATION.LOCATION_ID.in(locationIds)))
-                .map(i -> i == locationIds.size())
-                .recover(e -> locationIds.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (locationIds.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return t.execute(c -> c.update(LOCATION).set(LOCATION.ACTIVE, false).where(LOCATION.LOCATION_ID.in(locationIds)))
+                    .map(i -> i == locationIds.size());
+        };
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateRoleQ(UUID roleId) {
@@ -105,15 +151,24 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> activateStickyLocationsQ(List<UUID> toActivate) {
-        return t -> t.execute(c -> c.update(LOCATION).set(LOCATION.ACTIVE, true)
-                .from(STICKY_LOCATION).where(STICKY_LOCATION.LOCATION_ID.eq(LOCATION.LOCATION_ID))
-                .and(LOCATION.LOCATION_ID.in(toActivate)))
-                .map(i -> i == toActivate.size())
-                .recover(e -> toActivate.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (toActivate.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return t.execute(c -> c.update(LOCATION).set(LOCATION.ACTIVE, true)
+                    .from(STICKY_LOCATION).where(STICKY_LOCATION.LOCATION_ID.eq(LOCATION.LOCATION_ID))
+                    .and(LOCATION.LOCATION_ID.in(toActivate)))
+                    .map(i -> i == toActivate.size());
+        };
     }
 
-    public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateStickyQ(UUID stickyId) {
-        return t -> t.execute(c -> c.update(STICKY).set(STICKY.ACTIVE, false).where(STICKY.STICKY_ID.eq(stickyId)))
+    public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> setStickyStatusQ(UUID stickyId, Boolean status) {
+        return t -> t.execute(c -> c.update(STICKY).set(STICKY.ACTIVE, status).where(STICKY.STICKY_ID.eq(stickyId)))
+                .map(i -> i == 1);
+    }
+
+    public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> updateStickyMessageQ(UUID stickyId, String message) {
+        return t -> t.execute(c -> c.update(STICKY).set(STICKY.MESSAGE, message).where(STICKY.STICKY_ID.eq(stickyId)))
                 .map(i -> i == 1);
     }
 
@@ -128,7 +183,8 @@ public final class QueryHandler {
     }
 
     public static <T extends ReactiveClassicGenericQueryExecutor, R> Handler<AsyncResult<R>> commitTransaction(T t) {
-        return commitUpdateTransaction(t, r -> {});
+        return commitUpdateTransaction(t, r -> {
+        });
     }
 
     private static <T extends ReactiveClassicGenericQueryExecutor, R> Handler<AsyncResult<R>> commitUpdateTransaction(T t, Consumer<R> onSuccess) {
@@ -144,21 +200,25 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addStickyLocationsQ(UUID stickyId, List<Location> locations) {
-        return t -> addLocationsQ(locations)
-                .andThen(locF ->
-                        locF.flatMap(loc -> {
-                            if (loc) {
-                                return t.execute(c -> {
-                                    final var insert = c.insertInto(STICKY_LOCATION, STICKY_LOCATION.LOCATION_ID, STICKY_LOCATION.STICKY_ID, STICKY_LOCATION.MESSAGE);
-                                    locations.forEach(location -> insert.values(location.getId(), stickyId, location.getText()));
-                                    return insert;
-                                });
-                            }
-                            return failedFuture("Failed to insert location");
-                        })
-                                .map(i -> i == locations.size())
-                                .recover(e -> locations.size() == 0 ? succeededFuture(true) : failedFuture(e))
-                ).apply(t);
+        return t -> {
+            if (locations.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return addLocationsQ(locations)
+                    .andThen(locF ->
+                            locF.flatMap(loc -> {
+                                if (loc) {
+                                    return t.execute(c -> {
+                                        final var insert = c.insertInto(STICKY_LOCATION, STICKY_LOCATION.LOCATION_ID, STICKY_LOCATION.STICKY_ID, STICKY_LOCATION.MESSAGE);
+                                        locations.forEach(location -> insert.values(location.getId(), stickyId, location.getText()));
+                                        return insert;
+                                    });
+                                }
+                                return failedFuture("Failed to insert location");
+                            })
+                                    .map(i -> i == locations.size())
+                    ).apply(t);
+        };
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addChatQ(TelegramChannel chat) {
@@ -215,13 +275,17 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addLocationsQ(List<Location> locations) {
-        return t -> t.execute(c -> {
-            final var insert = c.insertInto(LOCATION, LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, LOCATION.MESSAGE);
-            locations.forEach(location -> insert.values(location.getId(), location.getParentLocation(), location.getText()));
-            return insert;
-        })
-                .map(i -> i == locations.size())
-                .recover(e -> locations.size() == 0 ? succeededFuture(true) : failedFuture(e));
+        return t -> {
+            if (locations.isEmpty()) {
+                return Future.succeededFuture(true);
+            }
+            return t.execute(c -> {
+                final var insert = c.insertInto(LOCATION, LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, LOCATION.MESSAGE);
+                locations.forEach(location -> insert.values(location.getId(), location.getParentLocation(), location.getText()));
+                return insert;
+            })
+                    .map(i -> i == locations.size());
+        };
     }
 
 }

@@ -22,6 +22,8 @@ public class UpdateStickyLocation {
     @Builder.Default
     private List<Location> add = List.of();
     @Builder.Default
+    private List<Location> update = List.of();
+    @Builder.Default
     private List<UUID> activate = List.of();
     @Builder.Default
     private List<UUID> remove = List.of();

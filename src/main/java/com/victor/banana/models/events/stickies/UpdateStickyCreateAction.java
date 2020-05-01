@@ -21,6 +21,8 @@ public class UpdateStickyCreateAction {
     @Builder.Default
     private List<CreateAction> add = List.of();
     @Builder.Default
+    private List<ActionUpdate> update = List.of();
+    @Builder.Default
     private List<UUID> activate = List.of();
     @Builder.Default
     private List<UUID> remove = List.of();

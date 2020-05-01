@@ -51,7 +51,6 @@ public class APIServiceImpl implements APIService {
 
             routerFactory.addHandlerByOperationId("addSticky", this::addSticky)
                     .addHandlerByOperationId("scanSticky", this::scanSticky)
-                    .addHandlerByOperationId("deleteSticky", this::deleteSticky)
                     .addHandlerByOperationId("updateSticky", this::updateSticky);
 
             routerFactory.addHandlerByOperationId("actionSelected", this::actionSelected);
@@ -71,33 +70,27 @@ public class APIServiceImpl implements APIService {
         });
     }
 
-    private void deleteSticky(RoutingContext rc) {
-        final var stickyId = rc.request().getParam("stickyId");
-        Future.<Boolean>future(f -> cartchufiService.deleteSticky(stickyId, f))
-                .onSuccess(b -> {
-                    if (b) {
-                        rc.response().setStatusCode(200).end();
-                    } else {
-                        rc.response().setStatusCode(404).end();
-                    }
-                })
-                .onFailure(t -> {
-                    log.error("Something went wrong", t);
-                    rc.response().setStatusCode(500).end();
-                });
-    }
-
     private void updateSticky(RoutingContext rc) {
         final var stickyId = rc.request().getParam("stickyId");
         final var stickyReq = rc.getBodyAsJson().mapTo(UpdateStickyReq.class);
         final var stickyUpdate = UpdateSticky.builder();
         stickyReq.getMessage().ifPresent(stickyUpdate::message);
+        stickyReq.getActive().ifPresent(stickyUpdate::active);
         stickyReq.getActions().ifPresent(sa -> stickyUpdate.actions(UpdateStickyCreateAction.builder()
                 .add(sa.getAdd().stream()
                         .map(as -> CreateAction.builder()
                                 .roleId(as.getRoleId())
                                 .message(as.getAction())
                                 .build())
+                        .collect(toList()))
+                .update(sa.getUpdate().stream()
+                        .map(as -> {
+                            final var au = ActionUpdate.builder()
+                                    .id(as.getId());
+                            as.getAction().ifPresent(au::action);
+                            as.getRoleId().ifPresent(au::roleId);
+                            return au.build();
+                        })
                         .collect(toList()))
                 .activate(sa.getActivate())
                 .remove(sa.getRemove()).build()));
@@ -107,6 +100,15 @@ public class APIServiceImpl implements APIService {
                                 .location(ls.getLocation())
                                 .parentLocation(ls.getParentLocation())
                                 .build())
+                        .collect(toList()))
+                .update(sl.getUpdate().stream()
+                        .map(as -> {
+                            final var au = StickyLocationUpdate.builder()
+                                    .id(as.getId());
+                            as.getLocation().ifPresent(au::location);
+                            as.getParentLocation().ifPresent(au::parentLocation);
+                            return au.build();
+                        })
                         .collect(toList()))
                 .activate(sl.getActivate())
                 .remove(sl.getRemove()).build()));

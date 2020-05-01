@@ -4,7 +4,7 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
 
-import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
@@ -12,25 +12,32 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@Getter
+@NoArgsConstructor
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class UpdateStickyAction {
-    @Builder.Default
-    private List<Action> add = List.of();
-    @Builder.Default
-    private List<Action> update = List.of();
-    @Builder.Default
-    private List<UUID> activate = List.of();
-    @Builder.Default
-    private List<UUID> remove = List.of();
+public class ActionUpdate {
+    private UUID id;
+    private String action;
+    private UUID roleId;
 
-    public UpdateStickyAction(JsonObject jsonObject) {
+    public ActionUpdate(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public Optional<String> getAction() {
+        return Optional.ofNullable(action);
+    }
+
+    public Optional<UUID> getRoleId() {
+        return Optional.ofNullable(roleId);
     }
 }

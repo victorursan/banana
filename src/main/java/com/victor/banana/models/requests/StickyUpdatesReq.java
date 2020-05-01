@@ -10,8 +10,9 @@ import java.util.UUID;
 @Getter
 @ToString
 @EqualsAndHashCode
-public class StickyUpdatesReq<T> {
-    private List<T> add = List.of();
+public class StickyUpdatesReq<Add, UPDATE> {
+    private List<Add> add = List.of();
+    private List<UPDATE> update = List.of();
     private List<UUID> activate = List.of();
     private List<UUID> remove = List.of();
 }

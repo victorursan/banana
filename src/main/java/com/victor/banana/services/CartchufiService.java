@@ -32,8 +32,6 @@ public interface CartchufiService {
 
     void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result);
 
-    void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
-
     void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result);
 
     void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result);

@@ -16,22 +16,21 @@ import com.victor.banana.services.DatabaseService;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
 import org.jooq.DSLContext;
-import org.jooq.TableField;
-import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
 
 import java.util.List;
 import java.util.UUID;
 
 import static com.victor.banana.controllers.db.QueryHandler.*;
-import static com.victor.banana.controllers.db.QueryHandler.commitUpdateTransaction;
 import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
+import static com.victor.banana.utils.CallbackUtils.mergeFutures;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.succeededFuture;
 import static java.util.stream.Collectors.toList;
@@ -296,7 +295,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void getSticky(String stickyIdS, Handler<AsyncResult<Sticky>> result) {
         final var stickyId = UUID.fromString(stickyIdS);
         queryExecutor.beginTransaction().flatMap(t ->
-                t.findOneRow(c -> c.select(STICKY.MESSAGE).from(STICKY).where(STICKY.STICKY_ID.eq(stickyId).and(STICKY.ACTIVE.eq(true))))
+                t.findOneRow(c -> c.select(STICKY.MESSAGE).from(STICKY).where(STICKY.STICKY_ID.eq(stickyId)))
                         .flatMap(s -> {
                             final var locationsF = t.findManyRow(c -> c.select(STICKY_LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, STICKY_LOCATION.MESSAGE)
                                     .from(STICKY_LOCATION)
@@ -330,10 +329,12 @@ public class DatabaseServiceImpl implements DatabaseService {
         final var stickyId = UUID.fromString(stickyIdS);
         queryExecutor.beginTransaction().flatMap(t -> {
             final var addActions = addStickyActionsQ(stickyId, updates.getAdd()).apply(t);
+            final var updateActions = updates.getUpdate().stream().map(update -> updateStickyActionQ(update).apply(t)).collect(toList());
             final var activateActions = activateActionsQ(updates.getActivate()).apply(t);
             final var deactivateActions = deactivateActionsQ(updates.getRemove()).apply(t);
-            return CompositeFuture.all(addActions, activateActions, deactivateActions)
-                    .map(c -> addActions.result() || activateActions.result() || deactivateActions.result())
+            updateActions.addAll(List.of(addActions, activateActions, deactivateActions));
+            return mergeFutures(updateActions).map(c ->
+                    true)
                     .onComplete(commitUpdateTransaction(t));
         }).onComplete(result);
     }
@@ -342,11 +343,12 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void updateStickyLocation(String stickyIdS, UpdateStickyLocation updates, Handler<AsyncResult<Boolean>> result) {
         final var stickyId = UUID.fromString(stickyIdS);
         queryExecutor.beginTransaction().flatMap(t -> {
-            final var addStickyLocation = addStickyLocationsQ(stickyId, updates.getAdd()).apply(t);
+            final var addStickyLocations = addStickyLocationsQ(stickyId, updates.getAdd()).apply(t);
+            final var updateLocations = updates.getUpdate().stream().map(update -> updateStickyLocationQ(update).apply(t)).collect(toList());
             final var activateLocations = activateStickyLocationsQ(updates.getActivate()).apply(t);
             final var deactivateLocations = deactivateStickyLocationsQ(updates.getRemove()).apply(t);
-            return CompositeFuture.all(addStickyLocation, activateLocations, deactivateLocations)
-                    .map(c -> addStickyLocation.result() || activateLocations.result() || deactivateLocations.result())
+            updateLocations.addAll(List.of(activateLocations, addStickyLocations, deactivateLocations));
+            return mergeFutures(updateLocations).map(c -> c.stream().anyMatch(a -> a == true))
                     .onComplete(commitUpdateTransaction(t));
         }).onComplete(result);
     }
@@ -392,16 +394,27 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void deactivateSticky(String stickyIdS, Handler<AsyncResult<Boolean>> result) {
-        final var stickyId = UUID.fromString(stickyIdS);
-        queryExecutor.beginTransaction().flatMap(t -> {
-            final var stickyF = deactivateStickyQ(stickyId).apply(t);
-            final var stickyActionsF = deactivateStickyActionsQ(stickyId).apply(t);
-            final var deactivateLocationsF = deactivateStickyLocationsQ(stickyId).apply(t);
-            return CompositeFuture.all(stickyActionsF, stickyF, deactivateLocationsF)
-                    .map(i -> stickyActionsF.result() && stickyF.result() && deactivateLocationsF.result())
-                    .onComplete(commitUpdateTransaction(t));
-        }).onComplete(result);
+    public final void setStickyStatus(StickyStatus stickyStatus, Handler<AsyncResult<Boolean>> result) {
+        setStickyStatusQ(stickyStatus.getId(), stickyStatus.getStatus()).apply(queryExecutor)
+                .onComplete(result);
+//        queryExecutor.beginTransaction().flatMap(t -> {
+//            if (stickyStatus.getStatus()) { //todo think about it
+//                return setStickyStatusQ(stickyStatus.getId(), true).apply(t);
+//            } else {
+//                final var stickyF = setStickyStatusQ(stickyStatus.getId(), false).apply(t);
+//                final var stickyActionsF = deactivateStickyActionsQ(stickyStatus.getId()).apply(t);
+//                final var deactivateLocationsF = deactivateStickyLocationsQ(stickyStatus.getId()).apply(t);
+//                return CompositeFuture.all(stickyActionsF, stickyF, deactivateLocationsF)
+//                        .map(i -> stickyActionsF.result() && stickyF.result() && deactivateLocationsF.result())
+//                        .onComplete(commitUpdateTransaction(t));
+//            }
+//        }).onComplete(result);
+    }
+
+    @Override
+    public final void updateStickyMessage(StickyMessage stickyMessage, Handler<AsyncResult<Boolean>> result) {
+        updateStickyMessageQ(stickyMessage.getId(), stickyMessage.getMessage()).apply(queryExecutor)
+                .onComplete(result);
     }
 
     @Override

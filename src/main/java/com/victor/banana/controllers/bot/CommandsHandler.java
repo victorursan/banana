@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public final class CommandsHandler{
+public final class CommandsHandler {
     private static final Logger log = LoggerFactory.getLogger(CommandsHandler.class);
     private final CommandRegistry commandRegistry;
 

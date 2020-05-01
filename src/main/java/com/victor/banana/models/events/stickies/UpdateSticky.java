@@ -19,6 +19,7 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @DataObject
 public class UpdateSticky {
     private String message;
+    private Boolean active;
     private UpdateStickyCreateAction actions;
     private UpdateStickyCreateLocation locations;
 
@@ -32,6 +33,10 @@ public class UpdateSticky {
 
     public Optional<String> getMessage() {
         return Optional.ofNullable(message);
+    }
+
+    public Optional<Boolean> getActive() {
+        return Optional.ofNullable(active);
     }
 
     public Optional<UpdateStickyCreateAction> getActions() {

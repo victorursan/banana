@@ -63,7 +63,9 @@ public interface DatabaseService {
 
     void updateStickyLocation(String stickyId, UpdateStickyLocation updates, Handler<AsyncResult<Boolean>> result);
 
-    void deactivateSticky(String stickyId, Handler<AsyncResult<Boolean>> result);
+    void setStickyStatus(StickyStatus stickyStatus, Handler<AsyncResult<Boolean>> result);
+
+    void updateStickyMessage(StickyMessage stickyMessage, Handler<AsyncResult<Boolean>> result);
 
     void addLocation(Location location, Handler<AsyncResult<Boolean>> result);
 

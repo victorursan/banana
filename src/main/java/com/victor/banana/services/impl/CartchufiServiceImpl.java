@@ -21,6 +21,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,7 @@ import java.util.stream.Stream;
 import static com.victor.banana.models.events.tickets.TicketState.*;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.concat;
 
 public class CartchufiServiceImpl implements CartchufiService {
     private final static Logger log = LoggerFactory.getLogger(CartchufiServiceImpl.class);
@@ -224,7 +226,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                                         .onSuccess(s -> {
                                             if (!affectedChatsF.result().isEmpty()) {
                                                 final var sendMessages = affectedChatsF.result().stream().map(chatId ->
-                                                         fromTicket(ticket.getId(), ticket.getMessage(), Optional.of(PENDING), chatId))
+                                                        fromTicket(ticket.getId(), ticket.getMessage(), Optional.of(PENDING), chatId))
                                                         .collect(toList());
                                                 Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
                                                         .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
@@ -362,44 +364,79 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void deleteSticky(String stickyId, Handler<AsyncResult<Boolean>> result) {
-        Future.<Boolean>future(f -> databaseService.deactivateSticky(stickyId, f))
-                .onComplete(result);
-    }
-
-    @Override
     public final void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result) {
         Future.<Sticky>future(f -> databaseService.getSticky(stickyId, f))
                 .flatMap(s -> {
-                    final var futures = Stream.concat(
-                            update.getActions()
-                                    .map(usa -> Future.<Boolean>future(f ->
-                                            databaseService.updateStickyActions(stickyId,
-                                                    UpdateStickyAction.builder()
-                                                            .add(createActionsToActions(usa.getAdd()))
-                                                            .activate(usa.getActivate())
-                                                            .remove(usa.getRemove())
-                                                            .build(),
-                                                    f)))
-                                    .stream(),
-                            update.getLocations()
-                                    .map(usl -> Future.<Boolean>future(f ->
-                                            databaseService.updateStickyLocation(stickyId,
-                                                    UpdateStickyLocation.builder()
-                                                            .add(createLocationsToLocations(usl.getAdd()))
-                                                            .activate(usl.getActivate())
-                                                            .remove(usl.getRemove())
-                                                            .build(),
-                                                    f)))
-                                    .stream()
-                    ).collect(toList());
+                    final var stickyStatusS = update.getActive()
+                            .map(status ->
+                                    Future.<Boolean>future(f -> databaseService.setStickyStatus(StickyStatus.builder()
+                                    .id(UUID.fromString(stickyId))
+                                    .status(status)
+                                    .build(), f)))
+                            .stream();
+
+                    final var stickyNameS = update.getMessage()
+                            .map(message -> Future.<Boolean>future(f -> databaseService.updateStickyMessage(StickyMessage.builder()
+                                    .id(UUID.fromString(stickyId))
+                                    .message(message)
+                                    .build(), f)))
+                            .stream();
+
+                    final var stickyActionsS = update.getActions()
+                            .map(usa -> Future.<Boolean>future(f ->
+                                    databaseService.updateStickyActions(stickyId,
+                                            UpdateStickyAction.builder()
+                                                    .add(createActionsToActions(usa.getAdd()))
+                                                    .update(updateActions(usa.getUpdate(), s.getActions()))
+                                                    .activate(usa.getActivate())
+                                                    .remove(usa.getRemove())
+                                                    .build(),
+                                            f)))
+                            .stream();
+
+                    final var stickyLocationsS = update.getLocations()
+                            .map(usl -> Future.<Boolean>future(f ->
+                                    databaseService.updateStickyLocation(stickyId,
+                                            UpdateStickyLocation.builder()
+                                                    .add(createLocationsToLocations(usl.getAdd()))
+                                                    .update(updateLocation(usl.getUpdate(), s.getLocations()))
+                                                    .activate(usl.getActivate())
+                                                    .remove(usl.getRemove())
+                                                    .build(),
+                                            f)))
+                            .stream();
+
+                    final var futures = concat(stickyStatusS, concat(stickyNameS, concat(stickyActionsS, stickyLocationsS))).collect(toList());
                     if (futures.isEmpty()) {
                         return succeededFuture(s);
                     }
-                    return CallbackUtils.mergeFutures(futures).map(r -> r.stream().reduce(Boolean::logicalOr).orElse(true))
+                    return CallbackUtils.mergeFutures(futures)
+                            .map(r -> r.stream().reduce(Boolean::logicalOr).orElse(true))
                             .flatMap(ignore -> future(f -> databaseService.getSticky(stickyId, f)));
                 })
                 .onComplete(result);
+    }
+
+    private List<Location> updateLocation(List<StickyLocationUpdate> stickyLocationUpdates, List<Location> locations) {
+        return stickyLocationUpdates.stream().flatMap(au ->
+                locations.stream().filter(a -> a.getId().equals(au.getId())).limit(1).map(a ->
+                        Location.builder()
+                                .id(a.getId())
+                                .text(au.getLocation().orElse(a.getText()))
+                                .parentLocation(au.getParentLocation().orElse(a.getParentLocation()))
+                                .build())
+        ).collect(toList());
+    }
+
+    private List<Action> updateActions(List<ActionUpdate> actionUpdates, List<Action> actions) {
+        return actionUpdates.stream().flatMap(au ->
+            actions.stream().filter(a -> a.getId().equals(au.getId())).limit(1).map(a ->
+                    Action.builder()
+                            .id(a.getId())
+                            .roleId(au.getRoleId().orElse(a.getRoleId()))
+                            .message(au.getAction().orElse(a.getMessage()))
+                    .build())
+        ).collect(toList());
     }
 
     @Override
