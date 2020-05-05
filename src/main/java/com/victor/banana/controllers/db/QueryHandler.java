@@ -1,13 +1,12 @@
 package com.victor.banana.controllers.db;
 
-import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
-import com.victor.banana.models.events.stickies.ActionUpdate;
 import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.tickets.Ticket;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;

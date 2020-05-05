@@ -44,7 +44,7 @@ ext {
     lombokVersion = '1.18.12'
     postgresqlVersion = '42.2.12'
     vertxJooqVersion = '5.1.1'
-    jacksonVersion = '2.10.3'
+    jacksonVersion = '2.11.0'
 }
 
 dependencies {

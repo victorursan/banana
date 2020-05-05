@@ -71,25 +71,28 @@ public class HttpServerVerticle extends AbstractVerticle {
                             .allowedMethods(allowedMethods));
                     router.route().handler(sessionHandler);
 
-                    KeycloakAuth.discover(vertx, clientOptions, r -> {
-                        OAuth2Auth oauth2Auth = r.result();
+                    KeycloakAuth.discover(vertx, clientOptions, r -> { //todo make this a future
+                        if (r.succeeded()) {
+                            OAuth2Auth oauth2Auth = r.result();
 
-                        if (oauth2Auth == null) {
-                            throw new RuntimeException("Could not configure Keycloak integration via OpenID Connect Discovery Endpoint. Is Keycloak running?");
-                        }
+                            if (oauth2Auth == null) {
+                                throw new RuntimeException("Could not configure Keycloak integration via OpenID Connect Discovery Endpoint. Is Keycloak running?");
+                            }
 
-                        final var oauth2 = OAuth2AuthHandler.create(oauth2Auth, "http://localhost:8081/callback")
-                                .setupCallback(router.get("/callback"))
-                                // Additional scopes: openid for OpenID Connect
-                                .addAuthority("openid");
+                            final var oauth2 = OAuth2AuthHandler.create(oauth2Auth, "http://localhost:8081/callback")
+                                    .setupCallback(router.get("/callback"))
+                                    // Additional scopes: openid for OpenID Connect
+                                    .addAuthority("openid");
 
-                        sessionHandler.setAuthProvider(oauth2Auth);
+                            sessionHandler.setAuthProvider(oauth2Auth);
 
 
 //                        router.route("/api/*").handler(oauth2); //todo
-                        router.mountSubRouter("/api", subrouter);
-                        router.get("/logout").handler(this::handleLogout);
-
+                            router.mountSubRouter("/api", subrouter);
+                            router.get("/logout").handler(this::handleLogout);
+                        } else {
+                            log.error("Something went wrong with keycloak connection", r.cause());
+                        }
                     });
                     router.get("/heathz").handler(healthCheck());
 

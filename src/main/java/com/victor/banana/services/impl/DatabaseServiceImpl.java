@@ -2,12 +2,13 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
@@ -16,12 +17,13 @@ import com.victor.banana.services.DatabaseService;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
+import org.jooq.Condition;
 import org.jooq.DSLContext;
+import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
 
 import java.util.List;
@@ -31,6 +33,9 @@ import static com.victor.banana.controllers.db.QueryHandler.*;
 import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
+import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
+import static com.victor.banana.utils.Constants.DBConstants.NO_ROLE;
+import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.succeededFuture;
 import static java.util.stream.Collectors.toList;
@@ -67,11 +72,33 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
-        queryExecutor.findOneRow(c -> c.selectFrom(PERSONNEL)
+        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+                .from(PERSONNEL)
                 .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnelId))))
                 .flatMap(rowToPersonnelF())
                 .onComplete(result);
     }
+
+    @Override
+    public final void findPersonnelWithUsername(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
+        final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE));
+        final var isOperating = filter.getOperating() ? operating : DSL.not(operating);
+        filter.getUsername().ifPresentOrElse(username ->
+        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+                .from(PERSONNEL)
+                .innerJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID)
+                .where(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))))
+                .flatMap(rowToPersonnelF())
+                .map(List::of)
+                .onComplete(result), () ->
+                        queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+                                .from(PERSONNEL)
+                                .where(isOperating))
+                                .map(mapTs(rowToPersonnel()))
+                                .onComplete(result)
+                );
+    }
+
 
     @Override
     public final void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result) {
@@ -166,7 +193,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result) {
-        queryExecutor.findManyRow(c -> c.select(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID)
+        queryExecutor.findManyRow(c -> c.selectDistinct(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID)
                 .from(CHAT_TICKET_MESSAGE)
                 .innerJoin(TELEGRAM_CHANNEL).using(TELEGRAM_CHANNEL.CHAT_ID)
                 .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
@@ -191,7 +218,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getTicketForMessage(Long chatId, Long messageId, Handler<AsyncResult<Ticket>> result) {
         queryExecutor.findOneRow(c ->
-                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
+                c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
                         .from(CHAT_TICKET_MESSAGE)
                         .innerJoin(TICKET)
                         .using(TICKET.TICKET_ID)
@@ -205,7 +232,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void getStickyLocation(String stickyLocationId, Handler<AsyncResult<StickyLocation>> result) {
         queryExecutor.beginTransaction().flatMap(t -> {
             final var stickyQ = t.findOneRow(c ->
-                    c.select(STICKY.STICKY_ID, STICKY.MESSAGE)
+                    c.selectDistinct(STICKY.STICKY_ID, STICKY.MESSAGE)
                             .from(STICKY)
                             .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
                             .where(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(stickyLocationId))).and(STICKY.ACTIVE.eq(true)));

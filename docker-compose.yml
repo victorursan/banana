@@ -24,6 +24,9 @@ services:
       DB_PASSWORD: P@ssw0rd
       KEYCLOAK_USER: admin
       KEYCLOAK_PASSWORD: Pa55w0rd
+      KEYCLOAK_IMPORT: /tmp/realm-export.json
+    volumes:
+      - ./realm-export.json:/tmp/realm-export.json
     ports:
       - 8080:8080
     depends_on:

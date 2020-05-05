@@ -1,7 +1,7 @@
 package com.victor.banana.controllers.db;
 
 import com.victor.banana.jooq.enums.State;
-import com.victor.banana.models.events.Personnel;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
@@ -11,22 +11,17 @@ import com.victor.banana.models.events.stickies.StickyAction;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.core.Future;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
 import io.vertx.sqlclient.Row;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
 import static com.victor.banana.jooq.Tables.*;
+import static com.victor.banana.utils.MappersHelper.fToTF;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.succeededFuture;
-import static java.util.stream.Collectors.toList;
 
 public final class RowMappers {
-    private static final Logger log = LoggerFactory.getLogger(RowMappers.class);
 
     public static Function<Row, Ticket> rowToTicket() {
         return r -> Ticket.builder()
@@ -100,56 +95,20 @@ public final class RowMappers {
                 .build();
     }
 
-    private static <T> Function<Row, Future<T>> rowToTF(Function<Row, T> mapper) {
-        return r -> {
-            if (r != null) {
-                try {
-                    final var ticket = mapper.apply(r);
-                    return succeededFuture(ticket);
-                } catch (Exception e) {
-                    log.error("Failed to map row", e);
-                    return failedFuture(e);
-                }
-            }
-            return failedFuture("No Row found");
-        };
-    }
-
-    private static <T> Function<Row, Stream<T>> rowToTS(Function<Row, T> mapper) {
-        return r -> {
-            if (r != null) {
-                try {
-                    final var ticket = mapper.apply(r);
-                    return Stream.of(ticket);
-                } catch (Exception e) {
-                    log.error("Failed to map row", e);
-                }
-            }
-            log.error("No Row found");
-            return Stream.empty();
-        };
-    }
-
-    public static <T> Function<List<Row>, List<T>> mapTs(Function<Row, T> mapper) {
-        return rows -> rows.stream()
-                .flatMap(rowToTS(mapper))
-                .collect(toList());
-    }
-
     public static Function<Row, Future<Ticket>> rowToTicketF() {
-        return rowToTF(rowToTicket());
+        return fToTF(rowToTicket());
     }
 
     public static Function<Row, Future<Personnel>> rowToPersonnelF() {
-        return rowToTF(rowToPersonnel());
+        return fToTF(rowToPersonnel());
     }
 
     public static Function<Row, Future<StickyAction>> rowToStickyActionF() {
-        return rowToTF(rowToStickyAction());
+        return fToTF(rowToStickyAction());
     }
 
     public static Function<Row, Future<TelegramChannel>> rowToTelegramChannelF() {
-        return rowToTF(rowToTelegramChannel());
+        return fToTF(rowToTelegramChannel());
     }
 
 

@@ -330,61 +330,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /personnel/{personnelId}/update/location:
-    put:
-      summary: Update a personnel's location
-      tags:
-        - personnel
-      parameters:
-        - name: personnelId
-          in: path
-          required: true
-          schema:
-            type: string
-      operationId: updatePersonnelLocation
-      responses:
-        '200':
-          description: The updated personnel
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Personnel"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /personnel/{personnelId}/update/role:
-    put:
-      summary: Update a personnel's location
-      tags:
-        - personnel
-      parameters:
-        - name: personnelId
-          in: path
-          required: true
-          schema:
-            type: string
-      operationId: updatePersonnelRole
-      responses:
-        '200':
-          description: The updated personnel
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Personnel"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
 
   /personnel/{personnelId}:
     get:
-      summary: Update a personnel's location
+      summary: Get personnel info
       tags:
         - personnel
       parameters:
@@ -407,6 +356,69 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    put:
+      summary: Update a personnel's info
+      tags:
+        - personnel
+      parameters:
+        - name: personnelId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: updatePersonnel
+      requestBody:
+        required: true
+        description: The action selected
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePersonnel'
+      responses:
+        '200':
+          description: The updated personnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Personnel"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /personnel:
+    get:
+      summary: Get personnel info
+      tags:
+        - personnel
+      parameters:
+        - name: username
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: operating
+          in: query
+          required: false
+          schema:
+            type: boolean
+      operationId: getPersonnelByType
+      responses:
+        '200':
+          description: The personnel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllPersonnel"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 
 components:
   schemas:
@@ -662,19 +674,11 @@ components:
       items:
         $ref: '#/components/schemas/Role'
 
-    UpdatePersonnelLocation:
+    UpdatePersonnel:
       type: object
-      required:
-        - newLocation
       properties:
         newLocation:
           type: string
-
-    UpdatePersonnelRole:
-      type: object
-      required:
-        - newRole
-      properties:
         newRole:
           type: string
 
@@ -685,6 +689,11 @@ components:
       properties:
         newRole:
           type: string
+
+    AllPersonnel:
+      type: array
+      items:
+        $ref: '#/components/schemas/Personnel'
 
     Personnel:
       type: object

@@ -5,6 +5,8 @@ import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.personnel.Personnel;
+import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
@@ -32,6 +34,8 @@ public interface DatabaseService {
     void addPersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result);
 
     void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
+
+    void findPersonnelWithUsername(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result);
 
     void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result);
 

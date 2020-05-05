@@ -1,10 +1,15 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.actions.TicketAction;
-import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.*;
+import com.victor.banana.models.events.personnel.Personnel;
+import com.victor.banana.models.events.personnel.PersonnelFilter;
+import com.victor.banana.models.events.personnel.UpdatePersonnel;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
@@ -21,14 +26,14 @@ import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.stream.Stream;
 
-import static com.victor.banana.models.events.tickets.TicketState.*;
+import static com.victor.banana.models.events.tickets.TicketState.PENDING;
+import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
+import static com.victor.banana.utils.Constants.DBConstants.NO_ROLE;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.concat;
@@ -252,8 +257,8 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void updateTicketState(UpdateTicketState updateTicketState, Handler<AsyncResult<Ticket>> result) {
-        Future.<Ticket>future(f -> databaseService.getTicket(updateTicketState.getTicketId().toString(), f))
+    public final void updateTicketState(String ticketId, UpdateTicketState updateTicketState, Handler<AsyncResult<Ticket>> result) {
+        Future.<Ticket>future(f -> databaseService.getTicket(ticketId, f))
                 .flatMap(ticket -> {
                     final var ticketAction = TicketAction.computeFor(ticket, updateTicketState.getNewTicketState(), "Community Team", updateTicketState.getPersonnelId()); //todo figure out username
                     processTicketAction(ticketAction).onFailure(t -> log.error(t.getMessage(), t));
@@ -297,6 +302,12 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onComplete(result);
     }
 
+    @Override
+    public final void findPersonnel(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
+        Future.<List<Personnel>>future(f -> databaseService.findPersonnelWithUsername(filter, f))
+                .onComplete(result);
+    }
+
     private Future<List<SentUpdateMessage>> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
         final var ticketActionOpt = TicketAction.computeFor(ticket, newTicketState, tc);
         return ticketActionOpt.map(this::processTicketAction)
@@ -336,8 +347,8 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .id(UUID.randomUUID())
                             .firstName(recvPersonnelMessage.getFirstName())
                             .lastName(recvPersonnelMessage.getLastName())
-                            .locationId(UUID.fromString("929abc9f-f34f-4a44-9928-863d9dfbe705"))
-                            .roleId(UUID.fromString("56841b70-d343-445f-b4a7-c0b10ea4e0f6"))
+                            .locationId(NO_LOCATION)
+                            .roleId(NO_ROLE)
                             .build();
                     final var chat = TelegramChannel.builder()
                             .chatId(recvPersonnelMessage.getChatId())
@@ -370,9 +381,9 @@ public class CartchufiServiceImpl implements CartchufiService {
                     final var stickyStatusS = update.getActive()
                             .map(status ->
                                     Future.<Boolean>future(f -> databaseService.setStickyStatus(StickyStatus.builder()
-                                    .id(UUID.fromString(stickyId))
-                                    .status(status)
-                                    .build(), f)))
+                                            .id(UUID.fromString(stickyId))
+                                            .status(status)
+                                            .build(), f)))
                             .stream();
 
                     final var stickyNameS = update.getMessage()
@@ -430,12 +441,12 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     private List<Action> updateActions(List<ActionUpdate> actionUpdates, List<Action> actions) {
         return actionUpdates.stream().flatMap(au ->
-            actions.stream().filter(a -> a.getId().equals(au.getId())).limit(1).map(a ->
-                    Action.builder()
-                            .id(a.getId())
-                            .roleId(au.getRoleId().orElse(a.getRoleId()))
-                            .message(au.getAction().orElse(a.getMessage()))
-                    .build())
+                actions.stream().filter(a -> a.getId().equals(au.getId())).limit(1).map(a ->
+                        Action.builder()
+                                .id(a.getId())
+                                .roleId(au.getRoleId().orElse(a.getRoleId()))
+                                .message(au.getAction().orElse(a.getMessage()))
+                                .build())
         ).collect(toList());
     }
 

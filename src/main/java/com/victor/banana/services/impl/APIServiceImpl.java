@@ -1,20 +1,15 @@
 package com.victor.banana.services.impl;
 
-import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.Personnel;
-import com.victor.banana.models.events.UpdatePersonnel;
-import com.victor.banana.models.events.UpdateTicketState;
-import com.victor.banana.models.events.locations.CreateLocation;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.locations.Location;
-import com.victor.banana.models.events.roles.CreateRole;
+import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.roles.Role;
-import com.victor.banana.models.events.stickies.*;
+import com.victor.banana.models.events.stickies.Sticky;
+import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
-import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.models.requests.*;
-import com.victor.banana.models.responses.*;
-import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.APIService;
+import com.victor.banana.services.CartchufiService;
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
 import io.vertx.core.logging.Logger;
@@ -23,11 +18,13 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static com.victor.banana.models.events.tickets.TicketState.*;
-import static java.util.stream.Collectors.toList;
+import static com.victor.banana.services.impl.ReqMapper.*;
+import static com.victor.banana.services.impl.RespMapper.*;
+import static com.victor.banana.utils.MappersHelper.mapTs;
 
 public class APIServiceImpl implements APIService {
     private static final Logger log = LoggerFactory.getLogger(APIServiceImpl.class);
@@ -59,10 +56,9 @@ public class APIServiceImpl implements APIService {
                     .addHandlerByOperationId("addRole", this::addRole)
                     .addHandlerByOperationId("deleteRole", this::deleteRole);
 
-            routerFactory.addHandlerByOperationId("updatePersonnelLocation", this::updatePersonnelLocation)
-                    .addHandlerByOperationId("updatePersonnelRole", this::updatePersonnelRole)
-                    .addHandlerByOperationId("updatePersonnelRole", this::updatePersonnelRole)
-                    .addHandlerByOperationId("getPersonnel", this::getPersonnel);
+            routerFactory.addHandlerByOperationId("updatePersonnel", this::updatePersonnel)
+                    .addHandlerByOperationId("getPersonnel", this::getPersonnel)
+                    .addHandlerByOperationId("getPersonnelByType", this::getPersonnelByType);
 
             routerFactory.addFailureHandlerByOperationId("addSticky", t -> log.error(t.getBodyAsJson().toString()));
 
@@ -73,47 +69,9 @@ public class APIServiceImpl implements APIService {
     private void updateSticky(RoutingContext rc) {
         final var stickyId = rc.request().getParam("stickyId");
         final var stickyReq = rc.getBodyAsJson().mapTo(UpdateStickyReq.class);
-        final var stickyUpdate = UpdateSticky.builder();
-        stickyReq.getMessage().ifPresent(stickyUpdate::message);
-        stickyReq.getActive().ifPresent(stickyUpdate::active);
-        stickyReq.getActions().ifPresent(sa -> stickyUpdate.actions(UpdateStickyCreateAction.builder()
-                .add(sa.getAdd().stream()
-                        .map(as -> CreateAction.builder()
-                                .roleId(as.getRoleId())
-                                .message(as.getAction())
-                                .build())
-                        .collect(toList()))
-                .update(sa.getUpdate().stream()
-                        .map(as -> {
-                            final var au = ActionUpdate.builder()
-                                    .id(as.getId());
-                            as.getAction().ifPresent(au::action);
-                            as.getRoleId().ifPresent(au::roleId);
-                            return au.build();
-                        })
-                        .collect(toList()))
-                .activate(sa.getActivate())
-                .remove(sa.getRemove()).build()));
-        stickyReq.getLocations().ifPresent(sl -> stickyUpdate.locations(UpdateStickyCreateLocation.builder()
-                .add(sl.getAdd().stream()
-                        .map(ls -> CreateLocation.builder()
-                                .location(ls.getLocation())
-                                .parentLocation(ls.getParentLocation())
-                                .build())
-                        .collect(toList()))
-                .update(sl.getUpdate().stream()
-                        .map(as -> {
-                            final var au = StickyLocationUpdate.builder()
-                                    .id(as.getId());
-                            as.getLocation().ifPresent(au::location);
-                            as.getParentLocation().ifPresent(au::parentLocation);
-                            return au.build();
-                        })
-                        .collect(toList()))
-                .activate(sl.getActivate())
-                .remove(sl.getRemove()).build()));
-        Future.<Sticky>future(f -> cartchufiService.updateSticky(UUID.fromString(stickyId).toString(), stickyUpdate.build(), f))
-                .map(this::stickySerializer)
+        final var stickyUpdate = updateStickyDeserializer().apply(stickyReq);
+        Future.<Sticky>future(f -> cartchufiService.updateSticky(UUID.fromString(stickyId).toString(), stickyUpdate, f))
+                .map(stickySerializer())
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -156,16 +114,7 @@ public class APIServiceImpl implements APIService {
     private void scanSticky(RoutingContext rc) {
         final var stickyLocationId = rc.request().getParam("stickyLocationId");
         Future.<StickyLocation>future(c -> cartchufiService.getStickyLocation(stickyLocationId, c))
-                .map(sticky -> StickyLocationResp.builder()
-                        .id(sticky.getId())
-                        .message(sticky.getMessage())
-                        .actions(sticky.getActions().stream().map(a -> ActionStickyResp.builder()
-                                .id(a.getId())
-                                .roleId(a.getRoleId())
-                                .message(a.getMessage())
-                                .build()).collect(toList()))
-                        .locationId(sticky.getLocationId())
-                        .build())
+                .map(stickyLocationSerializer())
                 .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -176,7 +125,7 @@ public class APIServiceImpl implements APIService {
     private void getTicket(RoutingContext rc) {
         final var ticketId = rc.request().getParam("ticketId");
         Future.<Ticket>future(f -> cartchufiService.getTicket(ticketId, f))
-                .map(this::ticketSerializer)
+                .map(ticketSerializer())
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -189,15 +138,10 @@ public class APIServiceImpl implements APIService {
         final var updateTicketReq = rc.getBodyAsJson().mapTo(UpdateTicketReq.class);
 
         Future.<Ticket>future(f -> {
-            final var updateTicketState = UpdateTicketState.builder()
-                    .ticketId(UUID.fromString(ticketId))
-                    .newTicketState(ticketStateDeserializer(updateTicketReq.getNewState()).orElseThrow()) //todo
-                    //todo figure out .personnelId()
-                    .personnelId(UUID.fromString("cf338d20-073a-4f28-ad68-a104d02eef9d"))
-                    .build();
-            cartchufiService.updateTicketState(updateTicketState, f);
+            final var updateTicketState = updateTicketStateDeserializer().apply(updateTicketReq);
+            cartchufiService.updateTicketState(UUID.fromString(ticketId).toString() ,updateTicketState, f);
         })
-                .map(this::ticketSerializer)
+                .map(ticketSerializer())
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -207,7 +151,7 @@ public class APIServiceImpl implements APIService {
 
     private void getTickets(RoutingContext rc) {
         Future.future(cartchufiService::getTickets)
-                .map(f -> f.stream().map(this::ticketSerializer).collect(toList()))
+                .map(mapTs(ticketSerializer()))
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -217,7 +161,7 @@ public class APIServiceImpl implements APIService {
 
     private void getLocations(RoutingContext rc) {
         Future.future(cartchufiService::getLocations)
-                .map(l -> l.stream().map(this::locationSerializer).collect(toList()))
+                .map(mapTs(locationSerializer()))
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -227,7 +171,7 @@ public class APIServiceImpl implements APIService {
 
     private void getRoles(RoutingContext rc) {
         Future.future(cartchufiService::getRoles)
-                .map(l -> l.stream().map(this::roleSerializer).collect(toList()))
+                .map(mapTs(roleSerializer()))
                 .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -237,12 +181,9 @@ public class APIServiceImpl implements APIService {
 
     private void actionSelected(RoutingContext rc) {
         final var actionSelectedReq = rc.getBodyAsJson().mapTo(ActionSelectedReq.class);
-        final var actionSelected = ActionSelected.builder()
-                .actionId(actionSelectedReq.getActionId())
-                .locationId(actionSelectedReq.getLocationId())
-                .build();
+        final var actionSelected = actionSelectedDeserializer().apply(actionSelectedReq);
         Future.<Ticket>future(t -> cartchufiService.actionSelected(actionSelected, t))
-                .map(this::ticketSerializer)
+                .map(ticketSerializer())
                 .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -250,40 +191,12 @@ public class APIServiceImpl implements APIService {
                 });
     }
 
-    private TicketResp ticketSerializer(Ticket t) {
-        return TicketResp.builder()
-                .ticketId(t.getId())
-                .message(t.getMessage())
-                .state(ticketStateSerializer(t.getState()))
-                .build();
-    }
-
-    private String ticketStateSerializer(TicketState ticketState) {
-        return switch (ticketState) {
-            case ACQUIRED -> "Acquired";
-            case SOLVED -> "Solved";
-            case PENDING -> "Pending";
-        };
-    }
-
-    private Optional<TicketState> ticketStateDeserializer(String ticketState) {
-        return switch (ticketState) {
-            case "Acquired" -> Optional.of(ACQUIRED);
-            case "Solved" -> Optional.of(SOLVED);
-            case "Pending" -> Optional.of(PENDING);
-            default -> Optional.empty();
-        };
-    }
-
     private void addLocation(RoutingContext rc) {
         final var locationReq = rc.getBodyAsJson().mapTo(AddLocationReq.class);
         Future.<Location>future(c -> {
-            final var createLocation = CreateLocation.builder()
-                    .parentLocation(locationReq.getParentLocation())
-                    .location(locationReq.getLocation())
-                    .build();
+            final var createLocation = createLocationDeserializer().apply(locationReq);
             cartchufiService.createLocation(createLocation, c);
-        }).map(this::locationSerializer)
+        }).map(locationSerializer())
                 .onSuccess(l -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -294,11 +207,9 @@ public class APIServiceImpl implements APIService {
     private void addRole(RoutingContext rc) {
         final var roleReq = rc.getBodyAsJson().mapTo(AddRoleReq.class);
         Future.<Role>future(c -> {
-            final var createRole = CreateRole.builder()
-                    .type(roleReq.getType())
-                    .build();
+            final var createRole = createRoleDeserializer().apply(roleReq);
             cartchufiService.createRole(createRole, c);
-        }).map(this::roleSerializer)
+        }).map(roleSerializer())
                 .onSuccess(l -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -309,24 +220,9 @@ public class APIServiceImpl implements APIService {
     private void addSticky(RoutingContext rc) {
         final var stickyReq = rc.getBodyAsJson().mapTo(AddStickyReq.class);
         Future.<Sticky>future(c -> {
-            final var createSticky = CreateSticky.builder()
-                    .message(stickyReq.getMessage())
-                    .actions(stickyReq.getActions().stream()
-                            .map(asr -> CreateAction.builder()
-                                    .message(asr.getAction())
-                                    .roleId(asr.getRoleId())
-                                    .build())
-                            .collect(toList()))
-                    .locations(stickyReq.getLocations().stream()
-                            .map(lsr -> CreateLocation.builder()
-                                    .location(lsr.getLocation())
-                                    .parentLocation(lsr.getParentLocation())
-                                    .build())
-                            .collect(toList())
-                    )
-                    .build();
+            final var createSticky = createStickyDeserializer().apply(stickyReq);
             cartchufiService.createSticky(createSticky, c);
-        }).map(this::stickySerializer)
+        }).map(stickySerializer())
                 .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -334,37 +230,10 @@ public class APIServiceImpl implements APIService {
                 });
     }
 
-    private StickyResp stickySerializer(Sticky sticky) {
-        return StickyResp.builder()
-                .id(sticky.getId())
-                .message(sticky.getMessage())
-                .actions(sticky.getActions().stream().map(a -> ActionStickyResp.builder()
-                        .id(a.getId())
-                        .roleId(a.getRoleId())
-                        .message(a.getMessage())
-                        .build()).collect(toList()))
-                .locations(sticky.getLocations().stream().map(this::locationSerializer).collect(toList()))
-                .build();
-    }
-
-    private LocationResp locationSerializer(Location location) {
-        return LocationResp.builder()
-                .id(location.getId())
-                .parentLocation(location.getParentLocation())
-                .message(location.getText())
-                .build();
-    }
-
-    private RoleResp roleSerializer(Role role) {
-        return RoleResp.builder()
-                .id(role.getId())
-                .role(role.getType())
-                .build();
-    }
-
     private void getPersonnel(RoutingContext rc) {
         final var personnelId = rc.request().getParam("personnelId");
         Future.<Personnel>future(f -> cartchufiService.getPersonnel(personnelId, f))
+                .map(personnelSerializer())
                 .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -372,11 +241,17 @@ public class APIServiceImpl implements APIService {
                 });
     }
 
-    private void updatePersonnelRole(RoutingContext rc) {
-        final var personnelId = rc.request().getParam("personnelId");
-        final var updatePersRole = rc.getBodyAsJson().mapTo(UpdatePersonnelRoleReq.class).getNewRole();
-        final var updatePers = UpdatePersonnel.builder().roleId(updatePersRole).build();
-        Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
+    private void getPersonnelByType(RoutingContext rc) {
+        final var personnelFilter = PersonnelFilter.builder();
+        if (!rc.queryParam("operating").isEmpty()) {
+            personnelFilter.operating(Boolean.parseBoolean(rc.queryParam("operating").get(0)));
+        }
+        if (!rc.queryParam("username").isEmpty()) {
+            personnelFilter.username(rc.queryParam("username").get(0));
+        }
+
+        Future.<List<Personnel>>future(f -> cartchufiService.findPersonnel(personnelFilter.build(), f))
+                .map(mapTs(personnelSerializer()))
                 .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
@@ -384,16 +259,16 @@ public class APIServiceImpl implements APIService {
                 });
     }
 
-    private void updatePersonnelLocation(RoutingContext rc) {
+    private void updatePersonnel(RoutingContext rc) {
         final var personnelId = rc.request().getParam("personnelId");
-        final var updatePersLoc = rc.getBodyAsJson().mapTo(UpdatePersonnelLocationReq.class).getNewLocation();
-        final var updatePers = UpdatePersonnel.builder().locationId(updatePersLoc).build();
-        Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePers, f))
+        final var updatePersonnelReq = rc.getBodyAsJson().mapTo(UpdatePersonnelReq.class);
+        final var updatePersonnel = updatePersonnelDeserializer().apply(updatePersonnelReq);
+        Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePersonnel, f))
+                .map(personnelSerializer())
                 .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                 .onFailure(t -> {
                     log.error(t.getMessage(), t);
                     rc.response().setStatusCode(400).end(t.getMessage());
                 });
-
     }
 }

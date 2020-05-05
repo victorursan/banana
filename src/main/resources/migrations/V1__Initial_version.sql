@@ -20,8 +20,9 @@ BEFORE UPDATE ON location
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
-INSERT INTO location(location_id, parent_location, message)
-VALUES ('929abc9f-f34f-4a44-9928-863d9dfbe705', '929abc9f-f34f-4a44-9928-863d9dfbe705', 'World');
+INSERT INTO location(location_id, parent_location, message, active)
+VALUES ('929abc9f-f34f-4a44-9928-863d9dfbe705', '929abc9f-f34f-4a44-9928-863d9dfbe705', 'World', true),
+('95c12221-2314-4d1f-bf25-bd30d969c49f', '95c12221-2314-4d1f-bf25-bd30d969c49f', 'NO LOCATION', false);
 
 CREATE TABLE role (
     role_id UUID NOT NULL PRIMARY KEY,
@@ -36,19 +37,20 @@ BEFORE UPDATE ON role
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
-INSERT INTO role (role_id, role_type)
-VALUES ('53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1', 'ADMIN'),
-('90642ef3-cd01-4fe5-a789-af915ddeaebc', 'COMMUNITY'),
-('56841b70-d343-445f-b4a7-c0b10ea4e0f6', 'CLEANER'),
-('2a53b2dc-11c3-4de6-a382-b6a9a1e3173e', 'MAINTENANCE');
+INSERT INTO role (role_id, role_type, active)
+VALUES ('53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1', 'ADMIN', true),
+('90642ef3-cd01-4fe5-a789-af915ddeaebc', 'COMMUNITY', true),
+('56841b70-d343-445f-b4a7-c0b10ea4e0f6', 'CLEANER', true),
+('2a53b2dc-11c3-4de6-a382-b6a9a1e3173e', 'MAINTENANCE', true),
+('2fdeaa40-1e25-4b08-b960-5add7c18d59f', 'NO ROLE', false);
 
 CREATE TABLE personnel (
     personnel_id UUID NOT NULL PRIMARY KEY,
     first_name TEXT,
     last_name TEXT,
-    checked_in BOOLEAN NOT NULL DEFAULT FALSE,
-    location_id UUID NOT NULL REFERENCES location(location_id),
-    role_id UUID NOT NULL REFERENCES role(role_id),
+    checked_in BOOLEAN NOT NULL DEFAULT true,
+    location_id UUID NOT NULL DEFAULT '95c12221-2314-4d1f-bf25-bd30d969c49f' REFERENCES location(location_id),
+    role_id UUID NOT NULL DEFAULT '2fdeaa40-1e25-4b08-b960-5add7c18d59f' REFERENCES role(role_id),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );

@@ -13,5 +13,5 @@ import java.util.List;
 public class AddStickyReq {
     private String message;
     private List<ActionStickyReq> actions;
-    private List<LocationStickyReq> locations;
+    private List<AddLocationReq> locations;
 }

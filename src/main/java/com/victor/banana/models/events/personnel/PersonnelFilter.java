@@ -1,27 +1,27 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.personnel;
 
-import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
 
-import java.util.UUID;
+import java.util.Optional;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
-@ToString
-@EqualsAndHashCode
-@AllArgsConstructor
 @Builder
+@AllArgsConstructor
 @NoArgsConstructor
 @Getter
+@ToString
+@EqualsAndHashCode
 @DataObject
-public class UpdateTicketState {
-    private UUID personnelId;
-    private TicketState newTicketState;
+public class PersonnelFilter {
+    private String username;
+    @Builder.Default
+    private Boolean operating = Boolean.TRUE;
 
-    public UpdateTicketState(JsonObject jsonObject) {
+    public PersonnelFilter(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 
@@ -29,4 +29,7 @@ public class UpdateTicketState {
         return serializeToJsonObject(this);
     }
 
+    public Optional<String> getUsername() {
+        return Optional.ofNullable(username);
+    }
 }

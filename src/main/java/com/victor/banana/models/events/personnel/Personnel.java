@@ -1,8 +1,9 @@
-package com.victor.banana.models.events;
+package com.victor.banana.models.events.personnel;
 
-import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.*;
 
 import java.util.UUID;
@@ -10,23 +11,25 @@ import java.util.UUID;
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
-@ToString
-@EqualsAndHashCode
-@AllArgsConstructor
 @Builder
+@AllArgsConstructor
 @NoArgsConstructor
 @Getter
+@ToString
+@EqualsAndHashCode
 @DataObject
-public class UpdateTicketState {
-    private UUID personnelId;
-    private TicketState newTicketState;
+public class Personnel {
+    private UUID id;
+    private String firstName;
+    private String lastName;
+    private UUID locationId;
+    private UUID roleId;
 
-    public UpdateTicketState(JsonObject jsonObject) {
+    public Personnel(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
     }
-
 }
