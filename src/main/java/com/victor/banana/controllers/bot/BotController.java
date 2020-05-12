@@ -8,6 +8,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -93,6 +94,8 @@ public final class BotController extends TelegramLongPollingBot {
             final var chatId = callbackqueryMessage.getChatId();
             final var messageId = callbackqueryMessage.getMessageId();
             final var messageStateOpt = getMessageStateForCallback(callbackquery.getData());
+            executeMessages(List.of(new AnswerCallbackQuery().setCallbackQueryId(callbackquery.getId())))
+                    .onFailure(t -> log.error("Failed to answer callback", t));
             messageStateOpt.ifPresentOrElse(messageState -> {
                 final var recvUpdateMessage = RecvUpdateMessage.builder()
                         .messageId(messageId.longValue())
@@ -156,7 +159,6 @@ public final class BotController extends TelegramLongPollingBot {
     private <T extends Serializable, M extends BotApiMethod<T>> Future<List<T>> executeMessages(List<M> elements) {
         return executeMessages(elements, identity(), (a, b) -> b);
     }
-
 
     @Override
     public String getBotUsername() {

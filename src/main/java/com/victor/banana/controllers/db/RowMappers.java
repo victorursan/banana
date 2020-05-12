@@ -1,15 +1,16 @@
 package com.victor.banana.controllers.db;
 
 import com.victor.banana.jooq.enums.State;
-import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
 import com.victor.banana.models.events.stickies.StickyAction;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
+import com.victor.banana.utils.Constants.PersonnelRole;
 import io.vertx.core.Future;
 import io.vertx.sqlclient.Row;
 
@@ -17,9 +18,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.victor.banana.jooq.Tables.*;
+import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
 import static com.victor.banana.utils.MappersHelper.fToTF;
-import static io.vertx.core.Future.failedFuture;
-import static io.vertx.core.Future.succeededFuture;
 
 public final class RowMappers {
 
@@ -39,9 +39,10 @@ public final class RowMappers {
         return r -> Personnel.builder()
                 .id(r.getUUID(PERSONNEL.PERSONNEL_ID.getName()))
                 .locationId(r.getUUID(PERSONNEL.LOCATION_ID.getName()))
-                .roleId(r.getUUID(PERSONNEL.ROLE_ID.getName()))
-                .firstName(r.getString(PERSONNEL.FIRST_NAME.getName()))
-                .lastName(r.getString(PERSONNEL.LAST_NAME.getName()))
+                .role(PersonnelRole.from(r.getUUID(PERSONNEL.ROLE_ID.getName())).orElse(NO_ROLE))
+                .firstName(Optional.ofNullable(r.getString(PERSONNEL.FIRST_NAME.getName())))
+                .lastName(Optional.ofNullable(r.getString(PERSONNEL.LAST_NAME.getName())))
+                .email(Optional.ofNullable(r.getString(PERSONNEL.EMAIL.getName())))
                 .build();
     }
 

@@ -20,6 +20,7 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 public class UpdatePersonnel {
     private String firstName;
     private String lastName;
+    private String email;
     private UUID locationId;
     private UUID roleId;
 
@@ -37,6 +38,10 @@ public class UpdatePersonnel {
 
     public Optional<String> getLastName() {
         return Optional.ofNullable(lastName);
+    }
+
+    public Optional<String> getEmail() {
+        return Optional.ofNullable(email);
     }
 
     public Optional<UUID> getLocationId() {

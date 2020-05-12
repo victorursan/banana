@@ -12,6 +12,6 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class UpdatePersonnelReq {
-    private Optional<UUID> newRole;
-    private Optional<UUID> newLocation;
+    private Optional<UUID> newRole = Optional.empty();
+    private Optional<UUID> newLocation = Optional.empty();
 }

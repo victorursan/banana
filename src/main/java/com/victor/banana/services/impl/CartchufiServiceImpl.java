@@ -3,6 +3,7 @@ package com.victor.banana.services.impl;
 import com.victor.banana.actions.TicketAction;
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.TokenUser;
 import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
@@ -19,6 +20,7 @@ import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.TelegramBotService;
 import com.victor.banana.utils.CallbackUtils;
+import com.victor.banana.utils.Constants;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -33,7 +35,7 @@ import java.util.function.Function;
 
 import static com.victor.banana.models.events.tickets.TicketState.PENDING;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
-import static com.victor.banana.utils.Constants.DBConstants.NO_ROLE;
+import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.concat;
@@ -281,9 +283,10 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .flatMap(p -> {
                     final var pers = Personnel.builder()
                             .id(UUID.fromString(personnelId))
-                            .firstName(updatePersonnel.getFirstName().orElse(p.getFirstName()))
-                            .lastName(updatePersonnel.getLastName().orElse(p.getLastName()))
-                            .roleId(updatePersonnel.getRoleId().orElse(p.getRoleId()))
+                            .firstName(updatePersonnel.getFirstName().or(p::getFirstName))
+                            .lastName(updatePersonnel.getLastName().or(p::getLastName))
+                            .email(updatePersonnel.getEmail().or(p::getEmail))
+                            .role(updatePersonnel.getRoleId().flatMap(Constants.PersonnelRole::from).orElse(p.getRole()))
                             .locationId(updatePersonnel.getLocationId().orElse(p.getLocationId()))
                             .build();
                     return Future.<Boolean>future(ft -> databaseService.updatePersonnel(pers, ft))
@@ -333,6 +336,43 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
+    public final void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result) {
+        Future.<Personnel>future((e -> databaseService.getPersonnel(user.getId().toString(), e)))
+                .flatMap(p -> {
+                    if (user.getAuthority().toPersonnelRole().isBetter(p.getRole())) {
+                        final var newP = new Personnel(p.toJson());
+                        newP.setRole(user.getAuthority().toPersonnelRole());
+                        return Future.<Boolean>future(f -> databaseService.updatePersonnel(newP, f))
+                                .flatMap(s -> {
+                                    if (s) {
+                                        return Future.succeededFuture(newP);
+                                    }
+                                    log.error(String.format("Couldn't update personnel's [%s] role to role [%s]", newP.getId(), newP.getRole()));
+                                    return Future.succeededFuture(p);
+                                });
+                    }
+                    return succeededFuture(p);
+                })
+                .recover(t -> {
+                    final var personnel = Personnel.builder()
+                            .id(user.getId())
+                            .firstName(Optional.ofNullable(user.getFirstName()))
+                            .lastName(Optional.ofNullable(user.getLastName()))
+                            .email(Optional.ofNullable(user.getEmail()))
+                            .locationId(NO_LOCATION)
+                            .role(user.getAuthority().toPersonnelRole())
+                            .build();
+                    return Future.<Boolean>future(f -> databaseService.addPersonnel(personnel, f))
+                            .flatMap(s -> {
+                                if (s) {
+                                    return Future.succeededFuture(personnel);
+                                }
+                                return Future.failedFuture(t);
+                            });
+                }).onComplete(result);
+    }
+
+    @Override
     public final void receivedPersonnelMessage(RecvPersonnelMessage recvPersonnelMessage) {
         final var message = ChatMessage.builder()
                 .chatId(recvPersonnelMessage.getChatId())
@@ -347,8 +387,9 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .id(UUID.randomUUID())
                             .firstName(recvPersonnelMessage.getFirstName())
                             .lastName(recvPersonnelMessage.getLastName())
+                            .email(Optional.empty())
                             .locationId(NO_LOCATION)
-                            .roleId(NO_ROLE)
+                            .role(NO_ROLE)
                             .build();
                     final var chat = TelegramChannel.builder()
                             .chatId(recvPersonnelMessage.getChatId())

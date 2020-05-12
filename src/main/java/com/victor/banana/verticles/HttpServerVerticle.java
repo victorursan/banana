@@ -9,10 +9,12 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import io.vertx.ext.auth.oauth2.KeycloakHelper;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2ClientOptions;
 import io.vertx.ext.auth.oauth2.impl.OAuth2TokenImpl;
 import io.vertx.ext.auth.oauth2.providers.KeycloakAuth;
+import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
@@ -65,7 +67,8 @@ public class HttpServerVerticle extends AbstractVerticle {
                     final var router = Router.router(vertx);
 
                     router.route().handler(LoggerHandler.create());
-                    router.route().handler(CorsHandler.create("http://localhost:8081")
+//                    router.route().handler(e -> log.info(e.request().headers()));
+                    router.route().handler(CorsHandler.create("http://localhost:4200")
                             .allowedHeaders(allowedHeaders)
                             .allowCredentials(true)
                             .allowedMethods(allowedMethods));
@@ -86,15 +89,14 @@ public class HttpServerVerticle extends AbstractVerticle {
 
                             sessionHandler.setAuthProvider(oauth2Auth);
 
-
-//                        router.route("/api/*").handler(oauth2); //todo
+                            router.route("/api/*").handler(oauth2); //todo
                             router.mountSubRouter("/api", subrouter);
                             router.get("/logout").handler(this::handleLogout);
                         } else {
                             log.error("Something went wrong with keycloak connection", r.cause());
                         }
                     });
-                    router.get("/heathz").handler(healthCheck());
+                    router.get("/healthz").handler(healthCheck());
 
                     server = vertx.createHttpServer(new HttpServerOptions(httpConfig))
                             .requestHandler(router)

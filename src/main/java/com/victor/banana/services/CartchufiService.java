@@ -1,6 +1,7 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.TokenUser;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
@@ -60,6 +61,8 @@ public interface CartchufiService {
     void checkOut(Long chatId);
 
     void actionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
+
+    void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result);
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 

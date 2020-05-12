@@ -4,9 +4,14 @@ info:
   title: Swagger Cartchufi
 servers:
   - url: http://localhost:8081/api/
+#security:
+#  - oAuth2AuthCode:   # <--- Use the same name as specified in securitySchemes
+#      - realm:member
 paths:
   /locations:
     get:
+#      security:
+#        - bearerAuth: ['community']
       summary: Get all locations
       operationId: getLocations
       tags:
@@ -25,6 +30,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     post:
+#      security:
+#        - bearerAuth: ['admin']
       summary: Add a new location
       operationId: addLocation
       tags:
@@ -52,6 +59,8 @@ paths:
 
   /locations/{locationId}:
     delete:
+#      security:
+#        - bearerAuth: ['admin']
       summary: Delete a specific location
       tags:
         - locations
@@ -74,6 +83,8 @@ paths:
 
   /tickets/{ticketId}:
     get:
+#      security:
+#        - bearerAuth: ['member']
       summary: Get specific ticket
       parameters:
         - name: ticketId
@@ -98,6 +109,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     put:
+#      security:
+#        - bearerAuth: ['community']
       summary: Update ticket
       parameters:
         - name: ticketId
@@ -131,6 +144,8 @@ paths:
 
   /tickets:
     get:
+#      security:
+#        - bearerAuth: ['community']
       summary: Get all tickets
       operationId: getTickets
       tags:
@@ -151,6 +166,8 @@ paths:
 
   /stickies/scan/{stickyLocationId}:
     get:
+#      security:
+#        - bearerAuth: ['member']
       summary: A sticky was scanned
       parameters:
         - name: stickyLocationId
@@ -177,6 +194,8 @@ paths:
 
   /stickies:
     post:
+#      security:
+#        - bearerAuth: ['community']
       summary: Add a new sticky
       tags:
         - stickies
@@ -204,6 +223,8 @@ paths:
 
   /stickies/{stickyId}:
     put:
+#      security:
+#        - bearerAuth: ['community']
       summary: Update a sticky
       tags:
         - stickies
@@ -237,6 +258,8 @@ paths:
 
   /actions:
     post:
+#      security:
+#        - bearerAuth: ['member']
       summary: Actions selected
       tags:
         - actions
@@ -264,6 +287,8 @@ paths:
 
   /roles:
     get:
+#      security:
+#        - bearerAuth: ['community']
       summary: Get all roles
       tags:
         - roles
@@ -282,6 +307,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     post:
+#      security:
+#        - bearerAuth: ['admin']
       summary: Add a new role
       tags:
         - roles
@@ -310,6 +337,8 @@ paths:
 
   /roles/{roleId}:
     delete:
+#      security:
+#        - bearerAuth: ['admin']
       summary: Delete a role
       tags:
         - roles
@@ -333,6 +362,8 @@ paths:
 
   /personnel/{personnelId}:
     get:
+#      security:
+#        - bearerAuth: ['member']
       summary: Get personnel info
       tags:
         - personnel
@@ -357,6 +388,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     put:
+#      security:
+#        - bearerAuth: ['admin']
       summary: Update a personnel's info
       tags:
         - personnel
@@ -390,6 +423,8 @@ paths:
 
   /personnel:
     get:
+#      security:
+#        - bearerAuth: ['community']
       summary: Get personnel info
       tags:
         - personnel
@@ -421,8 +456,20 @@ paths:
 
 
 components:
-  schemas:
+#  securitySchemes:
+#    oAuth2AuthCode:
+#      type: oauth2
+#      flows:
+#        authorizationCode:
+#          authorizationUrl: http://localhost:8080/auth/realms/banana-cartchufi/protocol/openid-connect/auth
+#          tokenUrl: http://localhost:8080/auth/realms/banana-cartchufi/protocol/openid-connect/token
+#          scopes:
+#            realm:member: member
+#            realm:community: community
+#            realm:admin: admin
+#      openIdConnectUrl: http://localhost:8080/auth/realms/banana-cartchufi/.well-known/openid-configuration
 
+  schemas:
     Location:
       type: object
       required:

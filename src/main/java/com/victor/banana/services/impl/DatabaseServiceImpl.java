@@ -34,7 +34,7 @@ import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
-import static com.victor.banana.utils.Constants.DBConstants.NO_ROLE;
+import static com.victor.banana.utils.Constants.PersonnelRole.*;
 import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.succeededFuture;
@@ -72,7 +72,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
-        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
                 .from(PERSONNEL)
                 .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnelId))))
                 .flatMap(rowToPersonnelF())
@@ -81,17 +81,17 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void findPersonnelWithUsername(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
-        final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE));
-        final var isOperating = filter.getOperating() ? operating : DSL.not(operating);
+        final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE.getUuid()));
+        final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating));
         filter.getUsername().ifPresentOrElse(username ->
-        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
                 .from(PERSONNEL)
                 .innerJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID)
                 .where(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))))
                 .flatMap(rowToPersonnelF())
                 .map(List::of)
                 .onComplete(result), () ->
-                        queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME)
+                        queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
                                 .from(PERSONNEL)
                                 .where(isOperating))
                                 .map(mapTs(rowToPersonnel()))
@@ -99,15 +99,15 @@ public class DatabaseServiceImpl implements DatabaseService {
                 );
     }
 
-
     @Override
     public final void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result) {
         queryExecutor.execute(c -> c.update(PERSONNEL)
-                .set(PERSONNEL.FIRST_NAME, personnel.getFirstName())
-                .set(PERSONNEL.LAST_NAME, personnel.getLastName())
+                .set(PERSONNEL.FIRST_NAME, personnel.getFirstName().orElse(null))
+                .set(PERSONNEL.LAST_NAME, personnel.getLastName().orElse(null))
+                .set(PERSONNEL.EMAIL, personnel.getEmail().orElse(null))
                 .set(PERSONNEL.LOCATION_ID, personnel.getLocationId())
-                .set(PERSONNEL.ROLE_ID, personnel.getRoleId())
-                .where(PERSONNEL.PERSONNEL_ID.eq(personnel.getId())))
+                .set(PERSONNEL.ROLE_ID, personnel.getRole().getUuid())
+                .where(PERSONNEL.PERSONNEL_ID.eq(personnel.getId())).and(isNotAdmin))
                 .map(i -> i == 1)
                 .onComplete(result);
     }
@@ -225,7 +225,6 @@ public class DatabaseServiceImpl implements DatabaseService {
                         .where(CHAT_TICKET_MESSAGE.CHAT_ID.eq(chatId).and(CHAT_TICKET_MESSAGE.MESSAGE_ID.eq(messageId))))
                 .flatMap(rowToTicketF())
                 .onComplete(result);
-
     }
 
     @Override
@@ -360,8 +359,8 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var activateActions = activateActionsQ(updates.getActivate()).apply(t);
             final var deactivateActions = deactivateActionsQ(updates.getRemove()).apply(t);
             updateActions.addAll(List.of(addActions, activateActions, deactivateActions));
-            return mergeFutures(updateActions).map(c ->
-                    true)
+            return mergeFutures(updateActions)
+                    .map(c -> true)
                     .onComplete(commitUpdateTransaction(t));
         }).onComplete(result);
     }
@@ -375,7 +374,8 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var activateLocations = activateStickyLocationsQ(updates.getActivate()).apply(t);
             final var deactivateLocations = deactivateStickyLocationsQ(updates.getRemove()).apply(t);
             updateLocations.addAll(List.of(activateLocations, addStickyLocations, deactivateLocations));
-            return mergeFutures(updateLocations).map(c -> c.stream().anyMatch(a -> a == true))
+            return mergeFutures(updateLocations)
+                    .map(c -> c.stream().anyMatch(a -> a == true))
                     .onComplete(commitUpdateTransaction(t));
         }).onComplete(result);
     }

@@ -24,12 +24,13 @@ import java.util.function.Function;
 
 import static com.victor.banana.controllers.db.RowMappers.ticketStateToState;
 import static com.victor.banana.jooq.Tables.*;
+import static com.victor.banana.utils.Constants.PersonnelRole.ADMIN;
 import static io.vertx.core.Future.failedFuture;
-import static io.vertx.core.Future.succeededFuture;
 
 
 public final class QueryHandler {
     private static final Logger log = LoggerFactory.getLogger(QueryHandler.class);
+    public static final Condition isNotAdmin = PERSONNEL.ROLE_ID.notEqual(ADMIN.getUuid());
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addStickyActionsQ(UUID stickyId, List<Action> actions) {
         return t -> {
@@ -228,8 +229,8 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addPersonnelQ(Personnel personnel) {
-        return t -> t.execute(c -> c.insertInto(PERSONNEL, PERSONNEL.PERSONNEL_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID)
-                .values(personnel.getId(), personnel.getFirstName(), personnel.getLastName(), personnel.getLocationId(), personnel.getRoleId())
+        return t -> t.execute(c -> c.insertInto(PERSONNEL, PERSONNEL.PERSONNEL_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID)
+                .values(personnel.getId(), personnel.getFirstName().orElse(null), personnel.getLastName().orElse(null), personnel.getEmail().orElse(null), personnel.getLocationId(), personnel.getRole().getUuid())
                 .onConflictDoNothing()
         ).map(i -> i == 1 || i == 0);
     }

@@ -2,7 +2,7 @@ version: '3'
 services:
   flyway:
     image: flyway/flyway:6.4
-    command: -url=jdbc:postgresql://db/postgres -user=postgres -password=P@ssw0rd -schemas=public,keycloak -connectRetries=60 migrate
+    command: -url=jdbc:postgresql://db/postgres -user=postgres -password=P@ssw0rd -schemas=public -connectRetries=60 migrate
     volumes:
       - ./src/main/resources/migrations:/flyway/sql
     depends_on:
@@ -14,7 +14,7 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: jboss/keycloak:10.0.0
+    image: jboss/keycloak:10.0.1
     environment:
       DB_VENDOR: POSTGRES
       DB_ADDR: db

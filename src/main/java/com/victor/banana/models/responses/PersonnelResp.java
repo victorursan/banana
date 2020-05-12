@@ -2,6 +2,7 @@ package com.victor.banana.models.responses;
 
 import lombok.*;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Builder
@@ -12,8 +13,9 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class PersonnelResp {
     private UUID id;
-    private String firstName;
-    private String lastName;
+    private Optional<String> firstName;
+    private Optional<String> lastName;
+    private Optional<String> email;
     private UUID locationId;
     private UUID roleId;
 }

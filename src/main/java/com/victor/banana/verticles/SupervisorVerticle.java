@@ -1,6 +1,8 @@
 package com.victor.banana.verticles;
 
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
@@ -17,6 +19,7 @@ public class SupervisorVerticle extends AbstractVerticle {
 
     @Override
     public void start(Promise<Void> startPromise) {
+        InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
         final var retriever = ConfigRetriever.create(vertx, new ConfigRetrieverOptions()
                 .addStore(new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", "config.json"))));
         future(retriever::getConfig)

@@ -4,6 +4,8 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
 
+import java.util.Optional;
+
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
@@ -28,5 +30,13 @@ public class RecvPersonnelMessage {
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
+    }
+
+    public Optional<String> getFirstName() {
+        return Optional.ofNullable(firstName);
+    }
+
+    public Optional<String> getLastName() {
+        return Optional.ofNullable(lastName);
     }
 }

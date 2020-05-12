@@ -42,12 +42,14 @@ VALUES ('53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1', 'ADMIN', true),
 ('90642ef3-cd01-4fe5-a789-af915ddeaebc', 'COMMUNITY', true),
 ('56841b70-d343-445f-b4a7-c0b10ea4e0f6', 'CLEANER', true),
 ('2a53b2dc-11c3-4de6-a382-b6a9a1e3173e', 'MAINTENANCE', true),
+('8981b593-6d7a-45db-bbbe-cbcdd23cc693', 'MEMBER', true),
 ('2fdeaa40-1e25-4b08-b960-5add7c18d59f', 'NO ROLE', false);
 
 CREATE TABLE personnel (
     personnel_id UUID NOT NULL PRIMARY KEY,
     first_name TEXT,
     last_name TEXT,
+    email TEXT,
     checked_in BOOLEAN NOT NULL DEFAULT true,
     location_id UUID NOT NULL DEFAULT '95c12221-2314-4d1f-bf25-bd30d969c49f' REFERENCES location(location_id),
     role_id UUID NOT NULL DEFAULT '2fdeaa40-1e25-4b08-b960-5add7c18d59f' REFERENCES role(role_id),

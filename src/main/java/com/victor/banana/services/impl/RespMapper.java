@@ -35,8 +35,9 @@ public final class RespMapper {
                 .id(p.getId())
                 .firstName(p.getFirstName())
                 .lastName(p.getLastName())
+                .email(p.getEmail())
                 .locationId(p.getLocationId())
-                .roleId(p.getRoleId())
+                .roleId(p.getRole().getUuid())
                 .build();
     }
 
