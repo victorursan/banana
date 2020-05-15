@@ -1,31 +1,27 @@
-package com.victor.banana.models.events.messages;
+package com.victor.banana.models.events.tickets;
 
-import com.victor.banana.models.events.tickets.TicketState;
+
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.*;
+import lombok.Data;
 
-import java.util.Optional;
+import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
 @AllArgsConstructor
-@NoArgsConstructor
-@Getter
-@ToString
-@EqualsAndHashCode
+@Data
 @DataObject
-public class SentUpdateMessage implements SentMessage {
-    private Long chatId;
-    private Long messageId;
-    private String text;
-    private Optional<TicketState> state;
+public class TicketNotification {
+    private UUID personnelId;
+    private UUID ticketId;
+    private NotificationType type;
 
-    public SentUpdateMessage(JsonObject jsonObject) {
+    public TicketNotification(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

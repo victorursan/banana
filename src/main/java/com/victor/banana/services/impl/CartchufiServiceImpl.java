@@ -14,8 +14,7 @@ import com.victor.banana.models.events.personnel.UpdatePersonnel;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
-import com.victor.banana.models.events.tickets.Ticket;
-import com.victor.banana.models.events.tickets.TicketState;
+import com.victor.banana.models.events.tickets.*;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.TelegramBotService;
@@ -36,6 +35,7 @@ import java.util.function.Function;
 import static com.victor.banana.models.events.tickets.TicketState.PENDING;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
 import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
+import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Stream.concat;
@@ -146,8 +146,8 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void getTickets(Handler<AsyncResult<List<Ticket>>> result) {
-        future(databaseService::getTickets)
+    public final void getTickets(TicketFilter filter, Handler<AsyncResult<List<Ticket>>> result) {
+        Future.<List<Ticket>>future(f -> databaseService.getTickets(filter, f))
                 .onComplete(result);
     }
 
@@ -156,7 +156,7 @@ public class CartchufiServiceImpl implements CartchufiService {
         final Future<List<Ticket>> ticketsF = switch (state) {
             case ACQUIRED -> future(f -> databaseService.getTicketsInStateForChat(chatId, state, f));
             case PENDING -> future(f -> databaseService.ticketsViableForChat(chatId, state, f));
-            default -> failedFuture("state not supported for this acction");
+            default -> failedFuture("state not supported for this action");
         };
         ticketsF.flatMap((List<Ticket> tickets) -> {
             if (tickets.isEmpty()) {
@@ -168,7 +168,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                         return fromTicket(ticket.getId(), ticketAction.getMessage(), ticketAction.getMessageStateForChat(chatId), chatId);
                     }).collect(toList()))
                     .flatMap(sendMessages -> Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f)))
-                    .onSuccess(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
+                    .onSuccess(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f))) //todo
                     .onFailure(t -> log.error("Something went wrong while saving the ticket messages", t));
         });
     }
@@ -203,8 +203,8 @@ public class CartchufiServiceImpl implements CartchufiService {
                         return Future.<List<Ticket>>future(f -> databaseService.getTicketsInStateForChat(chatId, TicketState.ACQUIRED, f))
                                 .flatMap(tickets -> Future.<TelegramChannel>future(channel -> databaseService.getChat(chatId, channel))
                                         .flatMap((TelegramChannel tc) -> {
-                                            final var sentTickets = tickets.stream().map(ticket -> transitionTicket(ticket, PENDING, tc)).collect(toList());
-                                            return CallbackUtils.mergeFutures(sentTickets).map(l -> l.stream().flatMap(List::stream).collect(toList()));
+                                            final var sentTickets = mapTs((Ticket ticket) -> transitionTicket(ticket, PENDING, tc)).apply(tickets);
+                                            return CallbackUtils.mergeFutures(sentTickets);
                                         }));
                     } else {
                         return failedFuture("Failed to check out :(");
@@ -214,7 +214,7 @@ public class CartchufiServiceImpl implements CartchufiService {
 
 
     @Override
-    public final void actionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result) {
+    public final void actionSelected(Personnel personnel, ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result) {
         Future.<Ticket>future(f -> databaseService.getActiveTicketForActionSelected(actionSelected, f))
                 .recover(noTicket -> {
                     log.debug(String.format("no ticket found for actionSelected: %s", actionSelected));
@@ -224,20 +224,30 @@ public class CartchufiServiceImpl implements CartchufiService {
                                         .id(UUID.randomUUID())
                                         .actionId(stickyAction.getActionId())
                                         .locationId(stickyAction.getLocationId())
-                                        .message(String.format("%s | %s | %s | %s", stickyAction.getParentLocation(), stickyAction.getLocation(), stickyAction.getStickyMessage(), stickyAction.getActionMessage()))
+                                        .message(String.format("%s | %s | %s", stickyAction.getParentLocation(), stickyAction.getLocation(), stickyAction.getActionMessage()))
                                         .state(PENDING)
                                         .build();
                                 final var affectedChatsF = chatsForTicket(ticket);
-                                final var ticketF = Future.<Boolean>future(t -> databaseService.addTicket(ticket, t));
+                                final var ticketF = Future.<Boolean>future(t -> databaseService.addTicket(ticket, t))
+                                        .onSuccess(r -> {
+                                            if (r) {
+                                                databaseService.addTicketNotification(TicketNotification.builder()
+                                                        .ticketId(ticket.getId())
+                                                        .personnelId(personnel.getId())
+                                                        .type(NotificationType.CREATED_BY)
+                                                        .build(), t -> {
+                                                    if (t.failed()) {
+                                                        log.error("Failed to add ticket notification", t.cause());
+                                                    }
+                                                });
+                                            } else {
+                                                log.error("Failed to add ticket");
+                                            }
+                                        });
                                 CompositeFuture.join(affectedChatsF, ticketF)
                                         .onSuccess(s -> {
-                                            if (!affectedChatsF.result().isEmpty()) {
-                                                final var sendMessages = affectedChatsF.result().stream().map(chatId ->
-                                                        fromTicket(ticket.getId(), ticket.getMessage(), Optional.of(PENDING), chatId))
-                                                        .collect(toList());
-                                                Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
-                                                        .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.addTicketsMessage(rcvTickets, f)))
-                                                        .onFailure(t -> log.error("Something went wrong while saving the ticket messages", t));
+                                            if (ticketF.result() && !affectedChatsF.result().isEmpty()) {
+                                                sendTicketMessage(affectedChatsF.result(), ticket);
                                             } else {
                                                 log.error(String.format("No personnel was found for this ticket: %s", ticket.toJson().toString()));
                                             }
@@ -249,12 +259,23 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onComplete(result);
     }
 
+    private Future<Boolean> sendTicketMessage(List<Long> chats, Ticket ticket) {
+        final var sendMessages = mapTs((Long chatId) -> fromTicket(ticket.getId(), ticket.getMessage(), Optional.of(PENDING), chatId)).apply(chats);
+        return Future.<List<SentTicketMessage>>future(f -> botService.sendMessages(sendMessages, f))
+                .flatMap(rcvTickets -> Future.future(f -> databaseService.addTicketsMessage(rcvTickets, f)));
+    }
+
+    private Future<Boolean> sendDeleteMessage(List<SendDeleteMessage> messages) {
+        return Future.<List<SentDeleteMessage>>future(f -> botService.deleteMessages(messages, f))
+                .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.hideTicketsMessage(rcvTickets, f)))
+                .onFailure(t -> log.error("Something went wrong while deleting the ticket messages", t));
+    }
+
     @Override
     public final void receivedMessageUpdate(RecvUpdateMessage updateMessage) {
         Future.<Ticket>future(ct -> databaseService.getTicketForMessage(updateMessage.getChatId(), updateMessage.getMessageId(), ct))
-                .flatMap(tick ->
-                        Future.<TelegramChannel>future(channel -> databaseService.getChat(updateMessage.getChatId(), channel))
-                                .flatMap(tc -> transitionTicket(tick, updateMessage.getState(), tc)))
+                .flatMap(tick -> Future.<TelegramChannel>future(channel -> databaseService.getChat(updateMessage.getChatId(), channel))
+                        .flatMap(tc -> transitionTicket(tick, updateMessage.getState(), tc)))
                 .onFailure(t -> log.error(t.getMessage(), t));
     }
 
@@ -311,28 +332,46 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onComplete(result);
     }
 
-    private Future<List<SentUpdateMessage>> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
+    private Future<Boolean> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
         final var ticketActionOpt = TicketAction.computeFor(ticket, newTicketState, tc);
         return ticketActionOpt.map(this::processTicketAction)
                 .orElse(failedFuture(String.format("Invalid Transition for [%s] + [%s] + [%s]", ticket, newTicketState, tc))); //todo
     }
 
-    private Future<List<SentUpdateMessage>> processTicketAction(TicketAction ticketAction) {
+    private Future<Boolean> processTicketAction(TicketAction ticketAction) {
         return Future.<Boolean>future(t -> databaseService.updateTicket(ticketAction.getTicket(), t))
                 .flatMap(didUpdate -> {
                     if (didUpdate) {
-                        return Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(ticketAction.getTicket().getId().toString(), i))
-                                .map(l -> l.stream()
-                                        .map(c -> SendUpdateMessage.builder()
-                                                .chatId(c.getChatId())
-                                                .messageId(c.getMessageId())
-                                                .state(ticketAction.getMessageStateForChat(c.getChatId()))
-                                                .text(ticketAction.getMessage())
-                                                .build())
-                                        .collect(toList()));
+                        final var ticketMessages = Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(ticketAction.getTicket().getId().toString(), i));
+                        return switch (ticketAction.getTicket().getState()) {
+                            case PENDING -> ticketMessages.map(mapTs(chatTicketMessageToSendDeleteMessage()))
+                                    .onSuccess(this::sendDeleteMessage)
+                                    .flatMap(ignore -> chatsForTicket(ticketAction.getTicket()))
+                                    .flatMap(chats -> sendTicketMessage(chats, ticketAction.getTicket()));
+                            case ACQUIRED, SOLVED -> ticketMessages.map(mapTs(chatTicketMessageToSendUpdateMessage(ticketAction)))
+                                    .flatMap(updates -> Future.<List<SentUpdateMessage>>future(f -> botService.updateMessages(updates, f)))
+                                    .map(ignore -> true);
+
+                        };
                     }
                     return failedFuture("Could not update ticket");
-                }).flatMap(updates -> Future.future(f -> botService.updateMessages(updates, f)));
+                });
+    }
+
+    private Function<ChatTicketMessage, SendUpdateMessage> chatTicketMessageToSendUpdateMessage(TicketAction ticketAction) {
+        return c -> SendUpdateMessage.builder()
+                .chatId(c.getChatId())
+                .messageId(c.getMessageId())
+                .state(ticketAction.getMessageStateForChat(c.getChatId()))
+                .text(ticketAction.getMessage())
+                .build();
+    }
+
+    private Function<ChatTicketMessage, SendDeleteMessage> chatTicketMessageToSendDeleteMessage() {
+        return c -> SendDeleteMessage.builder()
+                .chatId(c.getChatId())
+                .messageId(c.getMessageId())
+                .build();
     }
 
     @Override
@@ -466,6 +505,18 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .map(r -> r.stream().reduce(Boolean::logicalOr).orElse(true))
                             .flatMap(ignore -> future(f -> databaseService.getSticky(stickyId, f)));
                 })
+                .onComplete(result);
+    }
+
+    @Override
+    public final void getStickies(Handler<AsyncResult<List<Sticky>>> result) {
+        Future.future(databaseService::getStickies)
+                .onComplete(result);
+    }
+
+    @Override
+    public final void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result) {
+        Future.<Sticky>future(f -> databaseService.getSticky(stickyId, f))
                 .onComplete(result);
     }
 

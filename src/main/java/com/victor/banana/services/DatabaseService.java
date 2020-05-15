@@ -4,12 +4,15 @@ import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
+import com.victor.banana.models.events.messages.SentDeleteMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketFilter;
+import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
@@ -53,6 +56,8 @@ public interface DatabaseService {
 
     void addTicketsMessage(List<SentTicketMessage> chatMessages, Handler<AsyncResult<Boolean>> result);
 
+    void hideTicketsMessage(List<SentDeleteMessage> chatMessages, Handler<AsyncResult<Boolean>> result);
+
     void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result);
 
     void getTicketsInStateForChat(Long chatId, TicketState state, Handler<AsyncResult<List<Ticket>>> result);
@@ -62,6 +67,8 @@ public interface DatabaseService {
     void addSticky(Sticky sticky, Handler<AsyncResult<Boolean>> result);
 
     void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+
+    void getStickies(Handler<AsyncResult<List<Sticky>>> result);
 
     void updateStickyActions(String stickyId, UpdateStickyAction updates, Handler<AsyncResult<Boolean>> result);
 
@@ -89,11 +96,13 @@ public interface DatabaseService {
 
     void addTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result);
 
+    void addTicketNotification(TicketNotification ticketNotification, Handler<AsyncResult<Boolean>> result);
+
     void updateTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result);
 
     void getActiveTicketForActionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
 
     void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
 
-    void getTickets(Handler<AsyncResult<List<Ticket>>> result);
+    void getTickets(TicketFilter filter, Handler<AsyncResult<List<Ticket>>> result);
 }

@@ -22,7 +22,7 @@ EXECUTE PROCEDURE trigger_set_timestamp();
 
 INSERT INTO location(location_id, parent_location, message, active)
 VALUES ('929abc9f-f34f-4a44-9928-863d9dfbe705', '929abc9f-f34f-4a44-9928-863d9dfbe705', 'World', true),
-('95c12221-2314-4d1f-bf25-bd30d969c49f', '95c12221-2314-4d1f-bf25-bd30d969c49f', 'NO LOCATION', false);
+('95c12221-2314-4d1f-bf25-bd30d969c49f', '95c12221-2314-4d1f-bf25-bd30d969c49f', 'NO LOCATION', true);
 
 CREATE TABLE role (
     role_id UUID NOT NULL PRIMARY KEY,
@@ -43,7 +43,7 @@ VALUES ('53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1', 'ADMIN', true),
 ('56841b70-d343-445f-b4a7-c0b10ea4e0f6', 'CLEANER', true),
 ('2a53b2dc-11c3-4de6-a382-b6a9a1e3173e', 'MAINTENANCE', true),
 ('8981b593-6d7a-45db-bbbe-cbcdd23cc693', 'MEMBER', true),
-('2fdeaa40-1e25-4b08-b960-5add7c18d59f', 'NO ROLE', false);
+('2fdeaa40-1e25-4b08-b960-5add7c18d59f', 'NO ROLE', true);
 
 CREATE TABLE personnel (
     personnel_id UUID NOT NULL PRIMARY KEY,
@@ -155,10 +155,27 @@ BEFORE UPDATE ON ticket
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
+CREATE TYPE NOTIFICATION AS ENUM ('CREATED_BY', 'FOLLOWING');
+
+CREATE TABLE personnel_ticket (
+    ticket_id UUID NOT NULL,
+    personnel_id UUID NOT NULL,
+    notification NOTIFICATION NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    PRIMARY KEY(ticket_id, personnel_id)
+);
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON personnel_ticket
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
 CREATE TABLE chat_ticket_message (
     message_id BIGINT NOT NULL,
     chat_id BIGINT NOT NULL REFERENCES telegram_channel(chat_id),
     ticket_id UUID NOT NULL REFERENCES ticket(ticket_id),
+    visible BOOLEAN NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     PRIMARY KEY(message_id, chat_id)

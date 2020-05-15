@@ -16,4 +16,5 @@ public class ActionStickyResp {
     private UUID id;
     private UUID roleId;
     private String message;
+    private String state;
 }

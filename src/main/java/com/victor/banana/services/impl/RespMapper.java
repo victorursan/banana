@@ -4,6 +4,7 @@ import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
+import com.victor.banana.models.events.stickies.ActionState;
 import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
@@ -64,6 +65,7 @@ public final class RespMapper {
                 .id(a.getId())
                 .roleId(a.getRoleId())
                 .message(a.getMessage())
+                .state(actionStateSerializer(a.getState()))
                 .build();
     }
 
@@ -78,9 +80,16 @@ public final class RespMapper {
 
     public static String ticketStateSerializer(TicketState ticketState) {
         return switch (ticketState) {
-            case ACQUIRED -> "Acquired";
-            case SOLVED -> "Solved";
-            case PENDING -> "Pending";
+            case ACQUIRED -> "acquired";
+            case SOLVED -> "solved";
+            case PENDING -> "pending";
+        };
+    }
+
+    public static String actionStateSerializer(ActionState actionState) {
+        return switch (actionState) {
+            case AVAILABLE -> "available";
+            case IN_PROGRESS -> "in_progress";
         };
     }
 }

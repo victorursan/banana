@@ -20,9 +20,9 @@ public final class ReqMapper {
 
     public static Optional<TicketState> ticketStateDeserializer(String ticketState) {
         return switch (ticketState) {
-            case "Acquired" -> Optional.of(ACQUIRED);
-            case "Solved" -> Optional.of(SOLVED);
-            case "Pending" -> Optional.of(PENDING);
+            case "acquired" -> Optional.of(ACQUIRED);
+            case "solved" -> Optional.of(SOLVED);
+            case "pending" -> Optional.of(PENDING);
             default -> Optional.empty();
         };
     }

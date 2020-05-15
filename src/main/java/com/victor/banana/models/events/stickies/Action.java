@@ -20,6 +20,8 @@ public class Action {
     private UUID id;
     private UUID roleId;
     private String message;
+    @Builder.Default
+    private ActionState state = ActionState.AVAILABLE; //todo
 
     public Action(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);

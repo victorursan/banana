@@ -19,7 +19,7 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class SentTicketMessage {
+public class SentTicketMessage implements SentMessage {
     private Long messageId;
     private Long chatId;
     private UUID ticketId;

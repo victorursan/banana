@@ -150,6 +150,12 @@ paths:
       operationId: getTickets
       tags:
         - tickets
+      parameters:
+        - name: user
+          in: query
+          required: false
+          schema:
+            type: boolean
       responses:
         '200':
           description: The tickets
@@ -193,6 +199,24 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /stickies:
+    get:
+      summary: Get all stickies
+      tags:
+        - stickies
+      operationId: getStickies
+      responses:
+        '200':
+          description: The Stickies
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stickies"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     post:
 #      security:
 #        - bearerAuth: ['community']
@@ -222,6 +246,30 @@ paths:
                 $ref: "#/components/schemas/Error"
 
   /stickies/{stickyId}:
+    get:
+      summary: Get the sticky with the specified id
+      tags:
+        - stickies
+      parameters:
+        - name: stickyId
+          in: path
+          required: true
+          schema:
+            type: string
+      operationId: getSticky
+      responses:
+        '200':
+          description: The desired sticky
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sticky"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     put:
 #      security:
 #        - bearerAuth: ['community']
@@ -559,6 +607,11 @@ components:
           type: string
         actions:
           $ref: "#/components/schemas/Actions"
+
+    Stickies:
+      type: array
+      items:
+        $ref: "#/components/schemas/Sticky"
 
     Sticky:
       type: object

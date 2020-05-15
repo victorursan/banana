@@ -2,10 +2,7 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.controllers.bot.BotController;
 import com.victor.banana.models.configs.TelegramBotConfig;
-import com.victor.banana.models.events.messages.SendTicketMessage;
-import com.victor.banana.models.events.messages.SendUpdateMessage;
-import com.victor.banana.models.events.messages.SentTicketMessage;
-import com.victor.banana.models.events.messages.SentUpdateMessage;
+import com.victor.banana.models.events.messages.*;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.TelegramBotService;
 import io.vertx.core.AsyncResult;
@@ -36,13 +33,20 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     }
 
     @Override
-    public void sendMessages(List<SendTicketMessage> messages, Handler<AsyncResult<List<SentTicketMessage>>> resultHandler) {
+    public final void sendMessages(List<SendTicketMessage> messages, Handler<AsyncResult<List<SentTicketMessage>>> resultHandler) {
         botController.sendMessages(messages)
                 .onComplete(resultHandler);
     }
 
-    public void updateMessages(List<SendUpdateMessage> messages, Handler<AsyncResult<List<SentUpdateMessage>>> resultHandler) {
+    @Override
+    public final void updateMessages(List<SendUpdateMessage> messages, Handler<AsyncResult<List<SentUpdateMessage>>> resultHandler) {
         botController.updateMessages(messages)
+                .onComplete(resultHandler);
+    }
+
+    @Override
+    public final void deleteMessages(List<SendDeleteMessage> messages, Handler<AsyncResult<List<SentDeleteMessage>>> resultHandler) {
+        botController.deleteMessages(messages)
                 .onComplete(resultHandler);
     }
 

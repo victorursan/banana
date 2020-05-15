@@ -1,5 +1,6 @@
 package com.victor.banana.controllers.db;
 
+import com.victor.banana.jooq.enums.Notification;
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
@@ -7,8 +8,11 @@ import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
+import com.victor.banana.models.events.stickies.ActionState;
 import com.victor.banana.models.events.stickies.StickyAction;
+import com.victor.banana.models.events.tickets.NotificationType;
 import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.utils.Constants.PersonnelRole;
 import io.vertx.core.Future;
@@ -70,6 +74,7 @@ public final class RowMappers {
                 .id(r.getUUID(STICKY_ACTION.ACTION_ID.getName()))
                 .roleId(r.getUUID(STICKY_ACTION.ROLE_ID.getName()))
                 .message(r.getString(STICKY_ACTION.MESSAGE.getName()))
+                .state(Optional.ofNullable(r.getUUID(TICKET.TICKET_ID.getName())).map(ignore -> ActionState.IN_PROGRESS).orElse(ActionState.AVAILABLE))
                 .build();
     }
 
@@ -78,6 +83,10 @@ public final class RowMappers {
                 .id(r.getUUID(ROLE.ROLE_ID.getName()))
                 .type(r.getString(ROLE.ROLE_TYPE.getName()))
                 .build();
+    }
+
+    public static Function<Row, Long> rowToChatId() {
+        return r -> r.getLong(TELEGRAM_CHANNEL.CHAT_ID.getName());
     }
 
     public static Function<Row, ChatTicketMessage> rowToChatTicketMessage() {
@@ -112,12 +121,17 @@ public final class RowMappers {
         return fToTF(rowToTelegramChannel());
     }
 
-
     public static State ticketStateToState(TicketState ts) {
         return switch (ts) {
             case SOLVED -> State.SOLVED;
             case ACQUIRED -> State.ACQUIRED;
             case PENDING -> State.PENDING;
+        };
+    }
+    public static Notification notificationTypeToNotification(NotificationType ts) {
+        return switch (ts) {
+            case FOLLOWING -> Notification.FOLLOWING;
+            case CREATED_BY -> Notification.CREATED_BY;
         };
     }
 

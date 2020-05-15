@@ -12,6 +12,7 @@ import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -124,18 +125,31 @@ public final class BotController extends TelegramLongPollingBot {
 
     public final Future<List<SentUpdateMessage>> updateMessages(List<SendUpdateMessage> sendUpdateMessages) {
         return executeMessages(sendUpdateMessages,
-                smth -> new EditMessageText()
-                        .setChatId(smth.getChatId())
-                        .setText(smth.getText())
-                        .setMessageId(smth.getMessageId().intValue())
-                        .setReplyMarkup(getKeyboardFor(smth.getState())),
-                (s, r) ->
+                sum -> new EditMessageText()
+                        .setChatId(sum.getChatId())
+                        .setText(sum.getText())
+                        .setMessageId(sum.getMessageId().intValue())
+                        .setReplyMarkup(getKeyboardFor(sum.getState())),
+                (sum, recvM) ->
                         SentUpdateMessage.builder()
-                                .chatId(s.getChatId())
-                                .messageId(s.getMessageId())
-                                .state(s.getState())
-                                .text(s.getText())
+                                .chatId(sum.getChatId())
+                                .messageId(sum.getMessageId())
+                                .state(sum.getState())
+                                .text(sum.getText())
                                 .build() //todo
+        );
+    }
+
+    public final Future<List<SentDeleteMessage>> deleteMessages(List<SendDeleteMessage> sendDeleteMessages) {
+        return executeMessages(sendDeleteMessages,
+                sdm -> new DeleteMessage()
+                        .setChatId(sdm.getChatId())
+                        .setMessageId(sdm.getMessageId().intValue()),
+                (sdm, recvm) -> SentDeleteMessage.builder()
+                        .chatId(sdm.getChatId())
+                        .messageId(sdm.getMessageId())
+                        .wasDeleted(recvm)
+                        .build()
         );
     }
 

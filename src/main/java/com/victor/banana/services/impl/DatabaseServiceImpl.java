@@ -2,18 +2,22 @@ package com.victor.banana.services.impl;
 
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
+import com.victor.banana.models.events.messages.SentDeleteMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketFilter;
+import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.DatabaseService;
+import com.victor.banana.utils.CallbackUtils;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
@@ -21,7 +25,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
-import org.jooq.Condition;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
@@ -34,7 +37,7 @@ import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
-import static com.victor.banana.utils.Constants.PersonnelRole.*;
+import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
 import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.succeededFuture;
@@ -84,19 +87,19 @@ public class DatabaseServiceImpl implements DatabaseService {
         final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE.getUuid()));
         final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating));
         filter.getUsername().ifPresentOrElse(username ->
-        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
-                .from(PERSONNEL)
-                .innerJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID)
-                .where(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))))
-                .flatMap(rowToPersonnelF())
-                .map(List::of)
-                .onComplete(result), () ->
-                        queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
-                                .from(PERSONNEL)
-                                .where(isOperating))
-                                .map(mapTs(rowToPersonnel()))
-                                .onComplete(result)
-                );
+                queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
+                        .from(PERSONNEL)
+                        .innerJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID)
+                        .where(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))))
+                        .flatMap(rowToPersonnelF())
+                        .map(List::of)
+                        .onComplete(result), () ->
+                queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
+                        .from(PERSONNEL)
+                        .where(isOperating))
+                        .map(mapTs(rowToPersonnel()))
+                        .onComplete(result)
+        );
     }
 
     @Override
@@ -126,13 +129,12 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var roleIdRF = t.findOneRow(c -> c.select(STICKY_ACTION.ROLE_ID)
                     .from(STICKY_ACTION)
                     .where(STICKY_ACTION.ACTION_ID.eq(ticket.getActionId())));
-            final var locationIdsRF = t.findOneRow(c -> c.select(LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION).from(LOCATION)
-                    .where(LOCATION.LOCATION_ID.eq(ticket.getLocationId())));
+            final var locationIdsRF = findAllParentLocationQ(ticket.getLocationId()).apply(t);
             return CompositeFuture.all(roleIdRF, locationIdsRF).flatMap(compositeFuture -> {
                 if (compositeFuture.succeeded()) {
                     return t.findManyRow(c -> {
                         final var rowId = roleIdRF.result().getUUID(STICKY_ACTION.ROLE_ID.getName());
-                        final var locationIds = List.of(locationIdsRF.result().getUUID(LOCATION.LOCATION_ID.getName()), locationIdsRF.result().getUUID(LOCATION.PARENT_LOCATION.getName()));
+                        final var locationIds = locationIdsRF.result();
                         return c.selectDistinct(TELEGRAM_CHANNEL.CHAT_ID).from(TELEGRAM_CHANNEL)
                                 .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
                                 .where(PERSONNEL.ROLE_ID.eq(rowId)
@@ -143,18 +145,11 @@ public class DatabaseServiceImpl implements DatabaseService {
                 return failedFuture(compositeFuture.cause());
             }).flatMap(rows -> {
                 if (rows != null) {
-                    final var ids = rows.stream()
-                            .map(r -> r.getLong(TELEGRAM_CHANNEL.CHAT_ID.getName()))
-                            .collect(toList());
+                    final var ids = mapTs(rowToChatId()).apply(rows);
                     return succeededFuture(ids);
                 }
                 return failedFuture("No Rows found");
-            })
-                    .onSuccess(ignore -> t.commit())
-                    .onFailure(e -> {
-                        log.error("Failed to get chats", e);
-                        t.rollback();
-                    });
+            }).onComplete(commitTransaction(t));
         }).onComplete(result);
     }
 
@@ -192,12 +187,21 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
+    public final void hideTicketsMessage(List<SentDeleteMessage> chatMessages, Handler<AsyncResult<Boolean>> result) {
+        hideTicketsMessageQ(chatMessages)
+                .apply(queryExecutor)
+                .onComplete(result);
+    }
+
+    @Override
     public final void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result) {
-        queryExecutor.findManyRow(c -> c.selectDistinct(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID)
+        queryExecutor.findManyRow(c ->
+                c.selectDistinct(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID)
                 .from(CHAT_TICKET_MESSAGE)
                 .innerJoin(TELEGRAM_CHANNEL).using(TELEGRAM_CHANNEL.CHAT_ID)
                 .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
-                .where(CHAT_TICKET_MESSAGE.TICKET_ID.eq(UUID.fromString(ticketId)).and(PERSONNEL.CHECKED_IN.eq(true))))
+                .where(CHAT_TICKET_MESSAGE.TICKET_ID.eq(UUID.fromString(ticketId)).and(PERSONNEL.CHECKED_IN.eq(true)))
+                .and(CHAT_TICKET_MESSAGE.VISIBLE.eq(true)))
                 .map(mapTs(rowToChatTicketMessage()))
                 .onComplete(result);
     }
@@ -230,19 +234,16 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getStickyLocation(String stickyLocationId, Handler<AsyncResult<StickyLocation>> result) {
         queryExecutor.beginTransaction().flatMap(t -> {
+            final var locationId = UUID.fromString(stickyLocationId);
             final var stickyQ = t.findOneRow(c ->
                     c.selectDistinct(STICKY.STICKY_ID, STICKY.MESSAGE)
                             .from(STICKY)
                             .innerJoin(STICKY_LOCATION).using(STICKY.STICKY_ID)
-                            .where(STICKY_LOCATION.LOCATION_ID.eq(UUID.fromString(stickyLocationId))).and(STICKY.ACTIVE.eq(true)));
+                            .where(STICKY_LOCATION.LOCATION_ID.eq(locationId)).and(STICKY.ACTIVE.eq(true)));
             return stickyQ.flatMap(stickyR -> {
                 if (stickyR != null) {
                     final var stickyId = stickyR.getUUID(STICKY.STICKY_ID.getName());
-                    final var actionsQ = t.findManyRow(c ->
-                            c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.MESSAGE, STICKY_ACTION.ROLE_ID)
-                                    .from(STICKY_ACTION)
-                                    .where(STICKY_ACTION.STICKY_ID.eq(stickyId)
-                                            .and(STICKY_ACTION.ACTIVE.eq(true))));
+                    final var actionsQ = getActionsForStickyLocation(stickyId, locationId).apply(t);
 
                     return actionsQ.flatMap(actionsR -> {
                         if (actionsR != null) {
@@ -250,7 +251,7 @@ public class DatabaseServiceImpl implements DatabaseService {
                                     .id(stickyId)
                                     .locationId(UUID.fromString(stickyLocationId))
                                     .message(stickyR.getString(STICKY.MESSAGE.getName()))
-                                    .actions(mapTs(rowToAction()).apply(actionsR))
+                                    .actions(actionsR)
                                     .build();
                             return succeededFuture(sticky);
                         }
@@ -258,12 +259,7 @@ public class DatabaseServiceImpl implements DatabaseService {
                     });
                 }
                 return failedFuture("No Row found");
-            })
-                    .onSuccess(ignore -> t.commit())
-                    .onFailure(e -> {
-                        log.error("Failed to get sticky location", e);
-                        t.rollback();
-                    });
+            }).onComplete(commitTransaction(t));
         }).onComplete(result);
     }
 
@@ -322,31 +318,22 @@ public class DatabaseServiceImpl implements DatabaseService {
         final var stickyId = UUID.fromString(stickyIdS);
         queryExecutor.beginTransaction().flatMap(t ->
                 t.findOneRow(c -> c.select(STICKY.MESSAGE).from(STICKY).where(STICKY.STICKY_ID.eq(stickyId)))
-                        .flatMap(s -> {
-                            final var locationsF = t.findManyRow(c -> c.select(STICKY_LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, STICKY_LOCATION.MESSAGE)
-                                    .from(STICKY_LOCATION)
-                                    .innerJoin(LOCATION).using(LOCATION.LOCATION_ID)
-                                    .where(STICKY_LOCATION.STICKY_ID.eq(stickyId)).and(LOCATION.ACTIVE.eq(true)))
-                                    .map(mapTs(rowToLocation()));
-                            final var actionsF = t.findManyRow(c -> c.select(STICKY_ACTION.ACTION_ID, STICKY_ACTION.ROLE_ID, STICKY_ACTION.MESSAGE)
-                                    .from(STICKY_ACTION)
-                                    .where(STICKY_ACTION.STICKY_ID.eq(stickyId)).and(STICKY_ACTION.ACTIVE.eq(true)))
-                                    .map(mapTs(rowToAction()));
+                        .flatMap(s -> getStickyFor(stickyId, s.getString(STICKY.MESSAGE.getName())).apply(t))
+                        .onComplete(commitTransaction(t)))
+                .onComplete(result);
+    }
 
-                            return CompositeFuture.all(locationsF, actionsF)
-                                    .map(c -> Sticky.builder()
-                                            .id(stickyId)
-                                            .message(s.getString(STICKY.MESSAGE.getName()))
-                                            .actions(actionsF.result())
-                                            .locations(locationsF.result())
-                                            .build());
+    @Override
+    public final void getStickies(Handler<AsyncResult<List<Sticky>>> result) {
+        queryExecutor.beginTransaction().flatMap(t ->
+                t.findManyRow(c -> c.select(STICKY.STICKY_ID, STICKY.MESSAGE).from(STICKY))
+                        .flatMap(ss -> {
+                            final var listOfF = ss.stream()
+                                    .map(s -> getStickyFor(s.getUUID(STICKY.STICKY_ID.getName()), s.getString(STICKY.MESSAGE.getName())).apply(t))
+                                    .collect(toList());
+                            return CallbackUtils.mergeFutures(listOfF);
                         })
-                        .onComplete(commitTransaction(t))
-                        .onSuccess(ignore -> t.commit())
-                        .onFailure(e -> {
-                            log.error("Failed to get sticky", e);
-                            t.rollback();
-                        }))
+                        .onComplete(commitTransaction(t)))
                 .onComplete(result);
     }
 
@@ -414,10 +401,17 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void getTickets(Handler<AsyncResult<List<Ticket>>> result) {
-        queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET))
+    public final void getTickets(TicketFilter filter, Handler<AsyncResult<List<Ticket>>> result) {
+        filter.getForUser().ifPresentOrElse(userId -> {
+            queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
+                    .innerJoin(PERSONNEL_TICKET).using(TICKET.TICKET_ID)
+                    .where(PERSONNEL_TICKET.PERSONNEL_ID.eq(userId)))
+                    .map(mapTs(rowToTicket()))
+                    .onComplete(result);
+        }, () -> queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET))
                 .map(mapTs(rowToTicket()))
-                .onComplete(result);
+                .onComplete(result));
+
     }
 
     @Override
@@ -461,6 +455,13 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void addTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result) {
         addTicketQ(ticket)
+                .apply(queryExecutor)
+                .onComplete(result);
+    }
+
+    @Override
+    public final void addTicketNotification(TicketNotification ticketNotification, Handler<AsyncResult<Boolean>> result) {
+        addTicketNotificationQ(ticketNotification)
                 .apply(queryExecutor)
                 .onComplete(result);
     }

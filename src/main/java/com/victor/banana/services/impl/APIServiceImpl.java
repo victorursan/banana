@@ -7,6 +7,7 @@ import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Sticky;
 import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketFilter;
 import com.victor.banana.models.requests.*;
 import com.victor.banana.services.APIService;
 import com.victor.banana.services.CartchufiService;
@@ -22,6 +23,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.victor.banana.services.impl.ReqMapper.*;
@@ -50,6 +52,8 @@ public class APIServiceImpl implements APIService {
 
             routerFactory.addHandlerByOperationId("addSticky", this::addSticky)
                     .addHandlerByOperationId("scanSticky", this::scanSticky)
+                    .addHandlerByOperationId("getStickies", this::getStickies)
+                    .addHandlerByOperationId("getSticky", this::getSticky)
                     .addHandlerByOperationId("updateSticky", this::updateSticky);
 
             routerFactory.addHandlerByOperationId("actionSelected", this::actionSelected);
@@ -67,7 +71,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void updateSticky(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response -> {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
             final var stickyId = rc.request().getParam("stickyId");
             final var stickyReq = rc.getBodyAsJson().mapTo(UpdateStickyReq.class);
             final var stickyUpdate = updateStickyDeserializer().apply(stickyReq);
@@ -79,8 +83,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void deleteLocation(RoutingContext rc) {
-        rc.next();
-        isUserAuthorized(rc, Authority.ADMIN, response -> {
+        isUserAuthorized(rc, Authority.ADMIN, personnel -> {
             final var locationId = rc.request().getParam("locationId");
             Future.<Boolean>future(f -> cartchufiService.deleteLocation(UUID.fromString(locationId).toString(), f))
                     .onSuccess(b -> {
@@ -98,7 +101,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void deleteRole(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.ADMIN, response -> {
+        isUserAuthorized(rc, Authority.ADMIN, personnel -> {
             final var roleId = rc.request().getParam("roleId");
             Future.<Boolean>future(f -> cartchufiService.deleteRole(roleId, f))
                     .onSuccess(b -> {
@@ -116,7 +119,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void scanSticky(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.MEMBER, response -> {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
             final var stickyLocationId = rc.request().getParam("stickyLocationId");
             Future.<StickyLocation>future(c -> cartchufiService.getStickyLocation(stickyLocationId, c))
                     .map(stickyLocationSerializer())
@@ -126,7 +129,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void getTicket(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.MEMBER, response -> {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
             final var ticketId = rc.request().getParam("ticketId");
             Future.<Ticket>future(f -> cartchufiService.getTicket(ticketId, f))
                     .map(ticketSerializer())
@@ -136,7 +139,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void updateTicket(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response -> {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
             final var ticketId = rc.request().getParam("ticketId");
             final var updateTicketReq = rc.getBodyAsJson().mapTo(UpdateTicketReq.class);
             Future.<Ticket>future(f -> {
@@ -150,15 +153,17 @@ public class APIServiceImpl implements APIService {
     }
 
     private void getTickets(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response ->
-                Future.future(cartchufiService::getTickets)
+        final var isUser = !rc.queryParam("user").isEmpty() && Boolean.parseBoolean(rc.queryParam("user").get(0));
+        isUserAuthorized(rc, isUser ? Authority.MEMBER : Authority.COMMUNITY, personnel ->
+                Future.<List<Ticket>>future(f ->
+                        cartchufiService.getTickets(TicketFilter.builder().forUser(isUser ? Optional.of(personnel.getId()) : Optional.empty()).build(), f))
                         .map(mapTs(ticketSerializer()))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                         .onFailure(failureHandler(rc, 500)));
     }
 
     private void getLocations(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response ->
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel ->
                 Future.future(cartchufiService::getLocations)
                         .map(mapTs(locationSerializer()))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
@@ -166,7 +171,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void getRoles(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response ->
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel ->
                 Future.future(cartchufiService::getRoles)
                         .map(mapTs(roleSerializer()))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
@@ -174,18 +179,18 @@ public class APIServiceImpl implements APIService {
     }
 
     private void actionSelected(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.MEMBER, response -> {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
             final var actionSelectedReq = rc.getBodyAsJson().mapTo(ActionSelectedReq.class);
             final var actionSelected = actionSelectedDeserializer().apply(actionSelectedReq);
-            Future.<Ticket>future(t -> cartchufiService.actionSelected(actionSelected, t))
+            Future.<Ticket>future(t -> cartchufiService.actionSelected(personnel, actionSelected, t))
                     .map(ticketSerializer())
                     .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
-                    .onFailure(failureHandler(rc, 500));
+                    .onFailure(failureHandler(rc, 400));
         });
     }
 
     private void addLocation(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.ADMIN, response -> {
+        isUserAuthorized(rc, Authority.ADMIN, personnel -> {
             final var locationReq = rc.getBodyAsJson().mapTo(AddLocationReq.class);
             Future.<Location>future(c -> {
                 final var createLocation = createLocationDeserializer().apply(locationReq);
@@ -197,7 +202,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void addRole(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.ADMIN, response -> {
+        isUserAuthorized(rc, Authority.ADMIN, personnel -> {
             final var roleReq = rc.getBodyAsJson().mapTo(AddRoleReq.class);
             Future.<Role>future(c -> {
                 final var createRole = createRoleDeserializer().apply(roleReq);
@@ -209,7 +214,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void addSticky(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response -> {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
             final var stickyReq = rc.getBodyAsJson().mapTo(AddStickyReq.class);
             Future.<Sticky>future(c -> {
                 final var createSticky = createStickyDeserializer().apply(stickyReq);
@@ -220,8 +225,26 @@ public class APIServiceImpl implements APIService {
         });
     }
 
+    private void getStickies(RoutingContext rc) {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel ->
+                Future.future(cartchufiService::getStickies)
+                        .map(mapTs(stickySerializer()))
+                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                        .onFailure(failureHandler(rc, 400)));
+    }
+
+    private void getSticky(RoutingContext rc) {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
+            final var stickyId = rc.request().getParam("stickyId");
+            Future.<Sticky>future(f -> cartchufiService.getSticky(stickyId, f))
+                    .map(stickySerializer())
+                    .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                    .onFailure(failureHandler(rc, 400));
+        });
+    }
+
     private void getPersonnel(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.MEMBER, response -> {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
             final var personnelId = rc.request().getParam("personnelId");
             Future.<Personnel>future(f -> cartchufiService.getPersonnel(personnelId, f))
                     .map(personnelSerializer())
@@ -231,7 +254,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void getPersonnelByType(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.COMMUNITY, response -> {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
             final var personnelFilter = PersonnelFilter.builder();
             if (!rc.queryParam("operating").isEmpty()) {
                 personnelFilter.operating(Boolean.parseBoolean(rc.queryParam("operating").get(0)));
@@ -248,7 +271,7 @@ public class APIServiceImpl implements APIService {
     }
 
     private void updatePersonnel(RoutingContext rc) {
-        isUserAuthorized(rc, Authority.ADMIN, response -> {
+        isUserAuthorized(rc, Authority.ADMIN, personnel -> {
             final var personnelId = rc.request().getParam("personnelId");
             final var updatePersonnelReq = rc.getBodyAsJson().mapTo(UpdatePersonnelReq.class);
             final var updatePersonnel = updatePersonnelDeserializer().apply(updatePersonnelReq);

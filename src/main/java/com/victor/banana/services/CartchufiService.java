@@ -17,6 +17,8 @@ import com.victor.banana.models.events.messages.RecvUpdateMessage;
 import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.stickies.UpdateSticky;
 import com.victor.banana.models.events.tickets.Ticket;
+import com.victor.banana.models.events.tickets.TicketFilter;
+import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
@@ -36,6 +38,10 @@ public interface CartchufiService {
 
     void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result);
 
+    void getStickies(Handler<AsyncResult<List<Sticky>>> result);
+
+    void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+
     void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result);
 
     void createRole(CreateRole createRole, Handler<AsyncResult<Role>> result);
@@ -52,7 +58,7 @@ public interface CartchufiService {
 
     void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
 
-    void getTickets(Handler<AsyncResult<List<Ticket>>> result);
+    void getTickets(TicketFilter ticketFilter, Handler<AsyncResult<List<Ticket>>> result);
 
     void requestPersonnelTicketsInState(Long chatId, TicketState state);
 
@@ -60,7 +66,7 @@ public interface CartchufiService {
 
     void checkOut(Long chatId);
 
-    void actionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
+    void actionSelected(Personnel personnel, ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
 
     void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result);
 
