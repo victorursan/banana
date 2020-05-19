@@ -33,14 +33,14 @@ compileJava {
 def mainVerticleName = 'com.victor.banana.verticles.SupervisorVerticle'
 
 run {
-    args = ['run', mainVerticleName, "--launcher-class=$mainClassName"]
+    args = ['run', mainVerticleName]
 }
 
 ext {
     vertxVersion = '3.9.0'
     telegrambotsVersion = '4.8.1'
     slf4jVersion = '1.7.30'
-    jooqVersion = '3.13.1'
+    jooqVersion = '3.13.2'
     lombokVersion = '1.18.12'
     postgresqlVersion = '42.2.12'
     vertxJooqVersion = '5.1.1'

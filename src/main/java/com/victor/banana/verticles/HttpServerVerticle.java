@@ -9,12 +9,10 @@ import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.ext.auth.oauth2.KeycloakHelper;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2ClientOptions;
 import io.vertx.ext.auth.oauth2.impl.OAuth2TokenImpl;
 import io.vertx.ext.auth.oauth2.providers.KeycloakAuth;
-import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
@@ -23,8 +21,10 @@ import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 import io.vertx.ext.web.handler.*;
 import io.vertx.ext.web.sstore.LocalSessionStore;
 
+import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 import static io.vertx.core.http.HttpHeaders.*;
@@ -41,6 +41,8 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var config = vertx.getOrCreateContext().config();
         final var httpConfig = config.getJsonObject("http");
         final var keyCloak = config.getJsonObject("keycloak");
+        final var allowedOrigin = config.getString("allowedOrigin");
+        final var selfHost = config.getString("selfHost");
 
         final var cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
         final var hs = new APIServiceImpl(cartchufiService);
@@ -57,8 +59,8 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         final var clientOptions = new OAuth2ClientOptions(keyCloak);
 
-        hs.routes(Future.future(f -> OpenAPI3RouterFactory.create(vertx, "src/main/resources/cartchufi.yaml", f)))
-                .onSuccess(subrouter -> {
+        hs.routes(Future.future(f -> OpenAPI3RouterFactory.create(vertx, "cartchufi.yaml", f)))
+                .flatMap(subrouter -> {
                     final var sessionStore = LocalSessionStore.create(vertx);
                     final var sessionHandler = SessionHandler.create(sessionStore)
                             .setCookieHttpOnlyFlag(true);
@@ -67,43 +69,46 @@ public class HttpServerVerticle extends AbstractVerticle {
                     final var router = Router.router(vertx);
 
                     router.route().handler(LoggerHandler.create());
-//                    router.route().handler(e -> log.info(e.request().headers()));
-                    router.route().handler(CorsHandler.create("http://localhost:4200")
+
+                    router.route().handler(CorsHandler.create(allowedOrigin)
                             .allowedHeaders(allowedHeaders)
                             .allowCredentials(true)
                             .allowedMethods(allowedMethods));
-                    router.route().handler(sessionHandler);
 
-                    KeycloakAuth.discover(vertx, clientOptions, r -> { //todo make this a future
-                        if (r.succeeded()) {
-                            OAuth2Auth oauth2Auth = r.result();
-
-                            if (oauth2Auth == null) {
-                                throw new RuntimeException("Could not configure Keycloak integration via OpenID Connect Discovery Endpoint. Is Keycloak running?");
-                            }
-
-                            final var oauth2 = OAuth2AuthHandler.create(oauth2Auth, "http://localhost:8081/callback")
-                                    .setupCallback(router.get("/callback"))
-                                    // Additional scopes: openid for OpenID Connect
-                                    .addAuthority("openid");
-
-                            sessionHandler.setAuthProvider(oauth2Auth);
-
-                            router.route("/api/*").handler(oauth2); //todo
-                            router.mountSubRouter("/api", subrouter);
-                            router.get("/logout").handler(this::handleLogout);
-                        } else {
-                            log.error("Something went wrong with keycloak connection", r.cause());
-                        }
-                    });
-                    router.get("/healthz").handler(healthCheck());
-
-                    server = vertx.createHttpServer(new HttpServerOptions(httpConfig))
-                            .requestHandler(router)
-                            .listen(l -> startPromise.handle(l.mapEmpty()));
+                    return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
+                            .flatMap(keycloakHandler(selfHost, sessionHandler, router))
+                            .map(oauth2 -> {
+                                router.route("/api/*").handler(oauth2); //todo
+                                router.get("/logout").handler(this::handleLogout);
+                                router.get("/healthz").handler(healthCheck());
+                                router.mountSubRouter("/api", subrouter);
+                                return oauth2;
+                            })
+                            .<HttpServer>flatMap(ignore ->
+                                    Future.future(vertx.createHttpServer(new HttpServerOptions(httpConfig))
+                                    .requestHandler(router)
+                                    ::listen));
                 })
-                .onFailure(t -> log.error("Failed to start http server", t));
+                .onSuccess(httpServer -> server = httpServer)
+                .<Void>mapEmpty()
+                .onComplete(startPromise);
+    }
 
+    private Function<OAuth2Auth, Future<AuthHandler>> keycloakHandler(String selfHost, SessionHandler sessionHandler, Router router) {
+        return oauth2Auth -> {
+            if (oauth2Auth == null) {
+                return Future.failedFuture("Could not configure Keycloak integration via OpenID Connect Discovery Endpoint. Is Keycloak running?");
+            }
+            sessionHandler.setAuthProvider(oauth2Auth);
+            router.route().handler(sessionHandler);
+
+            final var callbackPath = "/callback";
+            final var authHandler = OAuth2AuthHandler.create(oauth2Auth, URI.create(selfHost).resolve(callbackPath).toString())
+                    .setupCallback(router.get(callbackPath))
+                    // Additional scopes: openid for OpenID Connect
+                    .addAuthority("openid");
+            return Future.succeededFuture(authHandler);
+        };
     }
 
     @Override
@@ -124,7 +129,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         oAuth2Token.logout(res -> {
             if (!res.succeeded()) {
                 // the user might not have been logged out, to know why:
-                log.error("lailed to logout user", res.cause());
+                log.error("failed to logout user", res.cause());
                 ctx.response().setStatusCode(500).end("Logout failed");
                 return;
             }

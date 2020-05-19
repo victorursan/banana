@@ -7,10 +7,10 @@ import io.vertx.config.ConfigRetriever;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.*;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.jackson.DatabindCodec;
 
+import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.vertx.core.Future.future;
@@ -20,8 +20,9 @@ public class SupervisorVerticle extends AbstractVerticle {
     @Override
     public void start(Promise<Void> startPromise) {
         InternalLoggerFactory.setDefaultFactory(Slf4JLoggerFactory.INSTANCE);
+        final var configFile = Optional.ofNullable(System.getenv("CONFIG_FILE")).orElse("config.json");
         final var retriever = ConfigRetriever.create(vertx, new ConfigRetrieverOptions()
-                .addStore(new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", "config.json"))));
+                .addStore(new ConfigStoreOptions().setType("file").setConfig(new JsonObject().put("path", configFile))));
         future(retriever::getConfig)
                 .flatMap(this::deployVerticles)
                 .onComplete(startPromise);
