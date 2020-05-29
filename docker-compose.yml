@@ -14,7 +14,7 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: jboss/keycloak:10.0.1
+    image: banana-keycloak:v4
     environment:
       DB_VENDOR: POSTGRES
       DB_ADDR: db
@@ -24,10 +24,8 @@ services:
       DB_PASSWORD: P@ssw0rd
       KEYCLOAK_USER: admin
       KEYCLOAK_PASSWORD: Pa55w0rd
-      KEYCLOAK_IMPORT: /tmp/realm-export.json
-    volumes:
-      - ./realm-export.json:/tmp/realm-export.json
     ports:
       - 8080:8080
+      - 8082:8082
     depends_on:
       - flyway

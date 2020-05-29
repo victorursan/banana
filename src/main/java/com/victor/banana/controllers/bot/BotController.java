@@ -7,9 +7,12 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
@@ -43,18 +46,38 @@ public final class BotController extends TelegramLongPollingBot {
         this.botToken = botToken;
         this.cartchufiService = cartchufiService;
         this.commandsHandler = new CommandsHandler(botUsername);
-        commandsHandler.registerCommandWith("my_tickets", "The tickets you acquired and are not solved.",
+        commandsHandler.registerCommandWith("start", "start command", true, chat -> {
+
+            final var createChannelMessage = CreateChannelMessage.builder()
+                    .chatId(chat.getId())
+                    .firstName(chat.getFirstName())
+                    .lastName(chat.getLastName())
+                    .username(String.format("@%s", chat.getUserName()))
+                    .build();
+            Future.<Boolean>future(f -> cartchufiService.createTelegramChannel(createChannelMessage, f))
+                    .onSuccess(s -> {
+                        if (!s) {
+                            log.error("Creation of telegram channel failed");
+                        }
+                    })
+                    .onFailure(t -> log.error("Something went wrong creating telegram channel", t));
+        });
+        commandsHandler.registerCommandWith("my_tickets", "Here are all your acquired tickets. " +
+                        "This means the rest of the team is expecting you to finish the task. " +
+                        "You can press *Resolve* to complete them or *Back* to set them back to open.", false,
                 chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.ACQUIRED));
-        commandsHandler.registerCommandWith("open_tickets", "All the tickets that are in pending state",
+        commandsHandler.registerCommandWith("open_tickets", "Here are all the open ticket in your building. " +
+                        "Press *Acquire* to inform the rest of the team that you are responsible for this task.", false,
                 chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.PENDING));
-        commandsHandler.registerCommandWith("check_in", "This will enable receiving notifications",
+        commandsHandler.registerCommandWith("check_in", "Check-in to start receiving tickets in your building.", false,
                 chat -> cartchufiService.checkIn(chat.getId()));
-        commandsHandler.registerCommandWith("check_out", "This will disable receiving notifications",
+        commandsHandler.registerCommandWith("check_out", "Check-out to stop receiving tickets in your building.", false,
                 chat -> cartchufiService.checkOut(chat.getId()));
 
         executeMessages(List.of(new SetMyCommands(commandsHandler.getBotCommands())))
                 .onFailure(t -> log.error("failed register commands", t));
     }
+
 
     @Override
     public final void onUpdateReceived(Update update) {
@@ -81,11 +104,13 @@ public final class BotController extends TelegramLongPollingBot {
         if (update.hasMessage() && updateMessage.hasText()) {
             final var user = updateMessage.getFrom();
             final var personnelMessage = RecvPersonnelMessage.builder()
-                    .chatId(updateMessage.getChatId())
+                    .channel(CreateChannelMessage.builder()
+                            .chatId(updateMessage.getChatId())
+                            .firstName(user.getFirstName())
+                            .lastName(user.getLastName())
+                            .username(String.format("@%s", user.getUserName()))
+                            .build())
                     .messageId(updateMessage.getMessageId().longValue())
-                    .firstName(user.getFirstName())
-                    .lastName(user.getLastName())
-                    .username(String.format("@%s", user.getUserName()))
                     .message(updateMessage.getText())
                     .build();
             cartchufiService.receivedPersonnelMessage(personnelMessage);
@@ -113,6 +138,7 @@ public final class BotController extends TelegramLongPollingBot {
         return executeMessages(sendTicketMessages,
                 stm -> new SendMessage()
                         .setChatId(stm.getChatId())
+                        .enableHtml(true)
                         .setText(stm.getTicketMessage())
                         .setReplyMarkup(getKeyboardFor(stm.getTicketState())),
                 (stm, recvM) -> SentTicketMessage.builder()
@@ -127,6 +153,7 @@ public final class BotController extends TelegramLongPollingBot {
         return executeMessages(sendUpdateMessages,
                 sum -> new EditMessageText()
                         .setChatId(sum.getChatId())
+                        .enableHtml(true)
                         .setText(sum.getText())
                         .setMessageId(sum.getMessageId().intValue())
                         .setReplyMarkup(getKeyboardFor(sum.getState())),
@@ -145,11 +172,12 @@ public final class BotController extends TelegramLongPollingBot {
                 sdm -> new DeleteMessage()
                         .setChatId(sdm.getChatId())
                         .setMessageId(sdm.getMessageId().intValue()),
-                (sdm, recvm) -> SentDeleteMessage.builder()
-                        .chatId(sdm.getChatId())
-                        .messageId(sdm.getMessageId())
-                        .wasDeleted(recvm)
-                        .build()
+                (sdm, wasDeleted) ->
+                        SentDeleteMessage.builder()
+                                .chatId(sdm.getChatId())
+                                .messageId(sdm.getMessageId())
+                                .wasDeleted(wasDeleted)
+                                .build()
         );
     }
 

@@ -9,6 +9,7 @@ import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.jackson.DatabindCodec;
+import io.vertx.core.logging.LoggerFactory;
 
 import java.util.Optional;
 import java.util.function.Supplier;

@@ -169,6 +169,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+#    post:
+#      summary: Create a new ticket
+#      tags:
+#        - tickets
+#      operationId: addTicket
+#      requestBody:
+#        required: true
+#        description: The ticket to be added
+#        content:
+#          application/json:
+#            schema:
+#              $ref: '#/components/schemas/AddTicket'
+#      responses:
+#        '200':
+#          description: The new ticket
+#          content:
+#            application/json:
+#              schema:
+#                $ref: "#/components/schemas/Ticket"
+#        default:
+#          description: unexpected error
+#          content:
+#            application/json:
+#              schema:
+#                $ref: "#/components/schemas/Error"
 
   /stickies/scan/{stickyLocationId}:
     get:
@@ -789,6 +814,17 @@ components:
       properties:
         newRole:
           type: string
+
+#    AddTicket:
+#      type: object
+#      required:
+#        - actionId
+#        - locationId
+#      properties:
+#        actionId:
+#          type: string
+#        locationId:
+#          type: string
 
     AllPersonnel:
       type: array

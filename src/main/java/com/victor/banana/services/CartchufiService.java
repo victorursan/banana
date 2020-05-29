@@ -2,6 +2,7 @@ package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TokenUser;
+import com.victor.banana.models.events.messages.CreateChannelMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
@@ -18,7 +19,6 @@ import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.stickies.UpdateSticky;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
-import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.ProxyGen;
 import io.vertx.codegen.annotations.VertxGen;
@@ -71,6 +71,8 @@ public interface CartchufiService {
     void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result);
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
+
+    void createTelegramChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result);
 
     void receivedMessageUpdate(RecvUpdateMessage updateMessage);
 

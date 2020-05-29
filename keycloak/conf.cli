@@ -1,0 +1,13 @@
+embed-server -c=standalone-ha.xml
+
+/subsystem=logging/json-formatter=JSON_FORMATTER:add(pretty-print=false, exception-output-type=detailed-and-formatted, print-details=false)
+/subsystem=logging/console-handler=CONSOLE/:write-attribute(name=enabled,value=false)
+/subsystem=logging/console-handler=JSON_CONSOLE:add(enabled=true, named-formatter=JSON_FORMATTER)
+/subsystem=logging/root-logger=ROOT/:write-attribute(name=handlers,value=["JSON_CONSOLE"])
+/socket-binding-group=standard-sockets/socket-binding=https-admin/:add(port=8444)
+/socket-binding-group=standard-sockets/socket-binding=http-admin/:add(port=8082)
+/subsystem=undertow/server=default-server/https-listener=https-admin:add(socket-binding=https-admin, security-realm=ApplicationRealm, enable-http2=true)
+/subsystem=undertow/server=default-server/http-listener=default-admin:add(socket-binding=http-admin, redirect-socket="https-admin", enable-http2=true)
+/subsystem=undertow/configuration=filter/expression-filter=portAccess:add(,expression="path-prefix('/auth/admin') and (not equals(%p, 8444) and not equals(%p, 8082)) -> response-code(403)")
+/subsystem=undertow/server=default-server/host=default-host/filter-ref=portAccess:add()
+

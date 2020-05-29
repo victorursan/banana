@@ -26,11 +26,13 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.apache.commons.text.StringEscapeUtils;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.victor.banana.models.events.tickets.TicketState.PENDING;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
@@ -177,7 +179,7 @@ public class CartchufiServiceImpl implements CartchufiService {
         return SendTicketMessage.builder()
                 .chatId(chatId)
                 .ticketId(ticketId)
-                .ticketMessage(message)
+                .ticketMessage(StringEscapeUtils.escapeHtml4(message))
                 .ticketState(state)
                 .build();
     }
@@ -265,9 +267,10 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .flatMap(rcvTickets -> Future.future(f -> databaseService.addTicketsMessage(rcvTickets, f)));
     }
 
-    private Future<Boolean> sendDeleteMessage(List<SendDeleteMessage> messages) {
+    private Future<List<SentDeleteMessage>> sendDeleteMessage(List<SendDeleteMessage> messages) {
         return Future.<List<SentDeleteMessage>>future(f -> botService.deleteMessages(messages, f))
-                .flatMap(rcvTickets -> Future.<Boolean>future(f -> databaseService.hideTicketsMessage(rcvTickets, f)))
+                .onSuccess(rcvTickets -> Future.<Boolean>future(f -> databaseService.hideTicketsMessage(rcvTickets, f))
+                        .onFailure(t -> log.error("Something went wrong while saving deleted ticket status", t)))
                 .onFailure(t -> log.error("Something went wrong while deleting the ticket messages", t));
     }
 
@@ -335,7 +338,10 @@ public class CartchufiServiceImpl implements CartchufiService {
     private Future<Boolean> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
         final var ticketActionOpt = TicketAction.computeFor(ticket, newTicketState, tc);
         return ticketActionOpt.map(this::processTicketAction)
-                .orElse(failedFuture(String.format("Invalid Transition for [%s] + [%s] + [%s]", ticket, newTicketState, tc))); //todo
+                .orElseGet(() -> {
+                    log.error(String.format("Invalid Transition for [%s] + [%s] + [%s]", ticket, newTicketState, tc));
+                    return processTicketAction(TicketAction.computeFor(ticket, tc.getChatId(), tc.getUsername()));
+                });
     }
 
     private Future<Boolean> processTicketAction(TicketAction ticketAction) {
@@ -345,13 +351,24 @@ public class CartchufiServiceImpl implements CartchufiService {
                         final var ticketMessages = Future.<List<ChatTicketMessage>>future(i -> databaseService.getTicketMessageForTicket(ticketAction.getTicket().getId().toString(), i));
                         return switch (ticketAction.getTicket().getState()) {
                             case PENDING -> ticketMessages.map(mapTs(chatTicketMessageToSendDeleteMessage()))
-                                    .onSuccess(this::sendDeleteMessage)
+                                    .onSuccess(deleteMsg -> sendDeleteMessage(deleteMsg)
+                                            .onSuccess(sentMsg -> {
+                                                final var crossMsg = sentMsg.stream()
+                                                        .filter(Predicate.not(SentDeleteMessage::getWasDeleted))
+                                                        .map(sdm -> SendUpdateMessage.builder()
+                                                                .chatId(sdm.getChatId())
+                                                                .messageId(sdm.getMessageId())
+                                                                .state(Optional.empty())
+                                                                .text(String.format("<s>%s</s>", StringEscapeUtils.escapeHtml4(ticketAction.getMessage())))
+                                                                .build()).collect(toList());
+                                                Future.<List<SentUpdateMessage>>future(f -> botService.updateMessages(crossMsg, f))
+                                                        .onFailure(t -> log.error("Failed to cross message", t));
+                                            }))
                                     .flatMap(ignore -> chatsForTicket(ticketAction.getTicket()))
                                     .flatMap(chats -> sendTicketMessage(chats, ticketAction.getTicket()));
                             case ACQUIRED, SOLVED -> ticketMessages.map(mapTs(chatTicketMessageToSendUpdateMessage(ticketAction)))
                                     .flatMap(updates -> Future.<List<SentUpdateMessage>>future(f -> botService.updateMessages(updates, f)))
                                     .map(ignore -> true);
-
                         };
                     }
                     return failedFuture("Could not update ticket");
@@ -363,7 +380,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .chatId(c.getChatId())
                 .messageId(c.getMessageId())
                 .state(ticketAction.getMessageStateForChat(c.getChatId()))
-                .text(ticketAction.getMessage())
+                .text(StringEscapeUtils.escapeHtml4(ticketAction.getMessage()))
                 .build();
     }
 
@@ -414,26 +431,39 @@ public class CartchufiServiceImpl implements CartchufiService {
     @Override
     public final void receivedPersonnelMessage(RecvPersonnelMessage recvPersonnelMessage) {
         final var message = ChatMessage.builder()
-                .chatId(recvPersonnelMessage.getChatId())
+                .chatId(recvPersonnelMessage.getChannel().getChatId())
                 .messageId(recvPersonnelMessage.getMessageId())
                 .message(recvPersonnelMessage.getMessage())
                 .build();
 
-        Future.<TelegramChannel>future((e -> databaseService.getChat(recvPersonnelMessage.getChatId(), e)))
+        Future.<Boolean>future(f -> createTelegramChannel(recvPersonnelMessage.getChannel(), f))
+                .flatMap(chatExists -> {
+                    if (chatExists) {
+                        return Future.<Boolean>future(c -> databaseService.addMessage(message, c)).map(message);
+                    }
+                    return failedFuture("problem adding the chat");
+                })
+                .onFailure(t -> log.error("An error occurred: ", t))
+                .onSuccess(m -> log.info("Added message: " + m.toString()));
+    }
+
+    @Override
+    public void createTelegramChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result) {
+        Future.<TelegramChannel>future((e -> databaseService.getChat(createChannel.getChatId(), e)))
                 .map(i -> true)
                 .recover(t -> {
                     final var personnel = Personnel.builder()
                             .id(UUID.randomUUID())
-                            .firstName(recvPersonnelMessage.getFirstName())
-                            .lastName(recvPersonnelMessage.getLastName())
+                            .firstName(createChannel.getFirstName())
+                            .lastName(createChannel.getLastName())
                             .email(Optional.empty())
                             .locationId(NO_LOCATION)
                             .role(NO_ROLE)
                             .build();
                     final var chat = TelegramChannel.builder()
-                            .chatId(recvPersonnelMessage.getChatId())
+                            .chatId(createChannel.getChatId())
                             .personnelId(personnel.getId())
-                            .username(recvPersonnelMessage.getUsername())
+                            .username(createChannel.getUsername())
                             .build();
 
                     return Future.<Boolean>future(e -> databaseService.addPersonnel(personnel, e))
@@ -443,15 +473,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                                 }
                                 return failedFuture("didn't find row");
                             });
-                })
-                .flatMap(chatExists -> {
-                    if (chatExists) {
-                        return Future.<Boolean>future(c -> databaseService.addMessage(message, c)).map(message);
-                    }
-                    return failedFuture("problem adding the chat");
-                })
-                .onFailure(t -> log.error("An error occurred: ", t))
-                .onSuccess(m -> log.info("Added message: " + m.toString()));
+                }).onComplete(result);
     }
 
     @Override

@@ -17,11 +17,8 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class RecvPersonnelMessage {
-    private String firstName;
-    private String lastName;
-    private String username;
+    private CreateChannelMessage channel;
     private Long messageId;
-    private Long chatId;
     private String message;
 
     public RecvPersonnelMessage(JsonObject jsonObject) {
@@ -30,13 +27,5 @@ public class RecvPersonnelMessage {
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
-    }
-
-    public Optional<String> getFirstName() {
-        return Optional.ofNullable(firstName);
-    }
-
-    public Optional<String> getLastName() {
-        return Optional.ofNullable(lastName);
     }
 }

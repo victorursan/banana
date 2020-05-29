@@ -21,6 +21,7 @@ sourceSets {
 }
 
 application {
+    applicationDefaultJvmArgs = ['-Dvertx.logger-delegate-factory-class-name=io.vertx.core.logging.SLF4JLogDelegateFactory']
     mainClassName = 'io.vertx.core.Launcher'
 }
 
@@ -37,7 +38,7 @@ run {
 }
 
 ext {
-    vertxVersion = '3.9.0'
+    vertxVersion = '3.9.1'
     telegrambotsVersion = '4.8.1'
     slf4jVersion = '1.7.30'
     jooqVersion = '3.13.2'
@@ -45,6 +46,7 @@ ext {
     postgresqlVersion = '42.2.12'
     vertxJooqVersion = '5.1.1'
     jacksonVersion = '2.11.0'
+    apacheCommonsVersion = '1.8'
 }
 
 dependencies {
@@ -79,9 +81,14 @@ dependencies {
     //jackson
     implementation group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jdk8', version: jacksonVersion
 
+    // other
+    implementation group: 'org.apache.commons', name: 'commons-text', version: apacheCommonsVersion
+
     // logging
     implementation group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
-    implementation group: 'org.slf4j', name: 'slf4j-simple', version: slf4jVersion
+//    implementation group: 'org.slf4j', name: 'slf4j-simple', version: slf4jVersion
+    implementation group: 'net.logstash.logback', name: 'logstash-logback-encoder', version: '6.3'
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
 
     //test
     testImplementation group: 'io.vertx', name: 'vertx-junit5', version: vertxVersion
