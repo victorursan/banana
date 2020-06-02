@@ -47,6 +47,9 @@ ext {
     vertxJooqVersion = '5.1.1'
     jacksonVersion = '2.11.0'
     apacheCommonsVersion = '1.8'
+    keycloakVersion = '10.0.1'
+    logbackVersion = '1.2.3'
+    logstashVersion = '6.3'
 }
 
 dependencies {
@@ -64,7 +67,7 @@ dependencies {
     implementation group: 'io.vertx', name: 'vertx-web-api-contract', version: vertxVersion
 
     implementation group: 'io.vertx', name: 'vertx-service-proxy', version: vertxVersion
-    annotationProcessor  group: 'io.vertx', name: 'vertx-service-proxy', version: vertxVersion, classifier: 'processor'
+    annotationProcessor group: 'io.vertx', name: 'vertx-service-proxy', version: vertxVersion, classifier: 'processor'
     implementation group: 'io.vertx', name: 'vertx-codegen', version: vertxVersion
     annotationProcessor group: 'io.vertx', name: 'vertx-codegen', version: vertxVersion, classifier: 'processor'
 
@@ -86,9 +89,12 @@ dependencies {
 
     // logging
     implementation group: 'org.slf4j', name: 'slf4j-api', version: slf4jVersion
-//    implementation group: 'org.slf4j', name: 'slf4j-simple', version: slf4jVersion
-    implementation group: 'net.logstash.logback', name: 'logstash-logback-encoder', version: '6.3'
-    implementation group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    implementation group: 'net.logstash.logback', name: 'logstash-logback-encoder', version: logstashVersion
+    implementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
+
+    //keycloak
+    implementation group: 'org.keycloak', name: 'keycloak-admin-client', version: keycloakVersion
+
 
     //test
     testImplementation group: 'io.vertx', name: 'vertx-junit5', version: vertxVersion

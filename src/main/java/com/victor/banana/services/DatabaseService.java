@@ -38,9 +38,11 @@ public interface DatabaseService {
 
     void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
 
-    void findPersonnelWithUsername(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result);
+    void findPersonnelWithFilter(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result);
 
     void updatePersonnel(Personnel personnel, Handler<AsyncResult<Boolean>> result);
+
+    void deletePersonnel(String personnelId, Handler<AsyncResult<Boolean>> result);
 
     void addChat(TelegramChannel chat, Handler<AsyncResult<Boolean>> result);
 
@@ -90,7 +92,7 @@ public interface DatabaseService {
 
     void getLocations(Handler<AsyncResult<List<Location>>> result);
 
-    void getRoles(Handler<AsyncResult<List<Role>>> result);
+    void getLocation(String locationId, Handler<AsyncResult<Location>> result);
 
     void getStickyAction(ActionSelected actionSelected, Handler<AsyncResult<StickyAction>> result);
 

@@ -526,6 +526,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /profile:
+    get:
+      summary: Get profile info
+      tags:
+        - profile
+      operationId: getProfile
+      responses:
+        '200':
+          description: The user's profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete user
+      tags:
+        - profile
+      operationId: deleteUserProfile
+      responses:
+        '204':
+          description: Successfully deleted user
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 
 components:
@@ -543,6 +576,29 @@ components:
 #      openIdConnectUrl: http://localhost:8080/auth/realms/banana-cartchufi/.well-known/openid-configuration
 
   schemas:
+    UserProfile:
+      type: object
+      required:
+        - id
+        - firstName
+        - lastName
+        - email
+        - role
+        - location
+      properties:
+        id:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        location:
+          $ref: "#/components/schemas/Location"
+
     Location:
       type: object
       required:

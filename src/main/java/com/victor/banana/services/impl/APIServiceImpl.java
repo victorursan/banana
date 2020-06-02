@@ -1,5 +1,6 @@
 package com.victor.banana.services.impl;
 
+import com.victor.banana.models.events.UserProfile;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
@@ -66,7 +67,27 @@ public class APIServiceImpl implements APIService {
                     .addHandlerByOperationId("getPersonnel", this::getPersonnel)
                     .addHandlerByOperationId("getPersonnelByType", this::getPersonnelByType);
 
+            routerFactory.addHandlerByOperationId("getProfile", this::getProfile)
+                    .addHandlerByOperationId("deleteUserProfile", this::deleteUserProfile);
+
             return routerFactory.getRouter();
+        });
+    }
+
+    private void deleteUserProfile(RoutingContext rc) {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
+            Future.<Void>future(f -> cartchufiService.deletePersonnel(personnel.getId().toString(), f))
+                    .onSuccess(res -> rc.response().setStatusCode(204).end())
+                    .onFailure(failureHandler(rc, 500));
+        });
+    }
+
+    private void getProfile(RoutingContext rc) {
+        isUserAuthorized(rc, Authority.MEMBER, personnel -> {
+            Future.<UserProfile>future(f -> cartchufiService.getUserProfile(personnel, f))
+                    .map(userProfileSerializer())
+                    .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                    .onFailure(failureHandler(rc, 500));
         });
     }
 

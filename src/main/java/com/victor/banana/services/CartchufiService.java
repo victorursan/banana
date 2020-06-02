@@ -2,6 +2,7 @@ package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TokenUser;
+import com.victor.banana.models.events.UserProfile;
 import com.victor.banana.models.events.messages.CreateChannelMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
@@ -56,6 +57,8 @@ public interface CartchufiService {
 
     void getRoles(Handler<AsyncResult<List<Role>>> result);
 
+    void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result);
+
     void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
 
     void getTickets(TicketFilter ticketFilter, Handler<AsyncResult<List<Ticket>>> result);
@@ -83,6 +86,8 @@ public interface CartchufiService {
     void findPersonnel(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result);
 
     void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result);
+
+    void deletePersonnel(String personnelId, Handler<AsyncResult<Void>> result);
 
     static CartchufiService createProxy(Vertx vertx, String address) {
         return new CartchufiServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);

@@ -1,7 +1,8 @@
 package com.victor.banana.services.impl;
 
-import com.victor.banana.models.events.personnel.Personnel;
+import com.victor.banana.models.events.UserProfile;
 import com.victor.banana.models.events.locations.Location;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.Action;
 import com.victor.banana.models.events.stickies.ActionState;
@@ -10,6 +11,7 @@ import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.models.responses.*;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.function.Function;
 
@@ -75,6 +77,17 @@ public final class RespMapper {
                 .message(sticky.getMessage())
                 .actions(mapTs(actionStickySerializer()).apply(sticky.getActions()))
                 .locations(mapTs(locationSerializer()).apply(sticky.getLocations()))
+                .build();
+    }
+
+    public static Function<UserProfile, UserProfileResp> userProfileSerializer() {
+        return userProfile -> UserProfileResp.builder()
+                .id(userProfile.getPersonnel().getId())
+                .email(userProfile.getPersonnel().getEmail().orElse(StringUtils.EMPTY))
+                .firstName(userProfile.getPersonnel().getFirstName().orElse(StringUtils.EMPTY))
+                .lastName(userProfile.getPersonnel().getLastName().orElse(StringUtils.EMPTY))
+                .role(roleSerializer().apply(userProfile.getRole()))
+                .location(locationSerializer().apply(userProfile.getLocation()))
                 .build();
     }
 

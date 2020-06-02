@@ -2,6 +2,7 @@ package com.victor.banana.verticles;
 
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
+import com.victor.banana.services.KeycloakClientService;
 import com.victor.banana.services.TelegramBotService;
 import com.victor.banana.services.impl.CartchufiServiceImpl;
 import io.vertx.core.AbstractVerticle;
@@ -23,7 +24,8 @@ public class CartchufiVerticle extends AbstractVerticle {
         try {
             final var dbService = DatabaseService.createProxy(vertx, DATABASE);
             final var telegramBotService = TelegramBotService.createProxy(vertx, TELEGRAM_BOT);
-            final var service = new CartchufiServiceImpl(telegramBotService, dbService);
+            final var keycloakClientService = KeycloakClientService.createProxy(vertx, KEYCLOAK_CLIENT);
+            final var service = new CartchufiServiceImpl(telegramBotService, dbService, keycloakClientService);
 
             return future(new ServiceBinder(vertx)
                     .setAddress(CARTCHUFI_ENGINE)
@@ -32,6 +34,5 @@ public class CartchufiVerticle extends AbstractVerticle {
         } catch (Exception e) {
             return failedFuture(e);
         }
-
     }
 }

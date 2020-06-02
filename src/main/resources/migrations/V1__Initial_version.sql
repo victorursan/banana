@@ -33,15 +33,15 @@ CREATE TABLE personnel (
     first_name TEXT,
     last_name TEXT,
     email TEXT,
-    checked_in BOOLEAN NOT NULL DEFAULT true,
     location_id UUID NOT NULL DEFAULT '95c12221-2314-4d1f-bf25-bd30d969c49f' REFERENCES location(location_id),
     role_id UUID NOT NULL DEFAULT '2fdeaa40-1e25-4b08-b960-5add7c18d59f' REFERENCES role(role_id),
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
 
-INSERT INTO personnel (personnel_id, checked_in, location_id, role_id)
-VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d', true, '929abc9f-f34f-4a44-9928-863d9dfbe705', '53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1');
+INSERT INTO personnel (personnel_id, location_id, role_id)
+VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d', '929abc9f-f34f-4a44-9928-863d9dfbe705', '53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1');
 
 CREATE TABLE sticky (
     sticky_id UUID NOT NULL PRIMARY KEY,
@@ -64,6 +64,7 @@ CREATE TABLE telegram_channel (
     chat_id BIGINT NOT NULL PRIMARY KEY,
     personnel_id UUID NOT NULL REFERENCES personnel(personnel_id),
     username TEXT NOT NULL,
+    checked_in BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );

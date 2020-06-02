@@ -24,6 +24,7 @@ services:
       DB_PASSWORD: P@ssw0rd
       KEYCLOAK_USER: admin
       KEYCLOAK_PASSWORD: Pa55w0rd
+      KEYCLOAK_LOGLEVEL: DEBUG
     ports:
       - 8080:8080
       - 8082:8082

@@ -64,7 +64,6 @@ public class HttpServerVerticle extends AbstractVerticle {
                             .allowedHeaders(allowedHeaders)
                             .allowCredentials(true)
                             .allowedMethods(allowedMethods));
-
                     return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
                             .flatMap(keycloakHandler(selfHost, router))
                             .map(oauth2 -> {

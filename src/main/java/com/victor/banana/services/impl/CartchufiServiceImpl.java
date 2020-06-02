@@ -1,10 +1,7 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.actions.TicketAction;
-import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.TelegramChannel;
-import com.victor.banana.models.events.TokenUser;
-import com.victor.banana.models.events.UpdateTicketState;
+import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.messages.*;
@@ -17,6 +14,7 @@ import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.*;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.services.DatabaseService;
+import com.victor.banana.services.KeycloakClientService;
 import com.victor.banana.services.TelegramBotService;
 import com.victor.banana.utils.CallbackUtils;
 import com.victor.banana.utils.Constants;
@@ -28,6 +26,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.apache.commons.text.StringEscapeUtils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,10 +45,12 @@ public class CartchufiServiceImpl implements CartchufiService {
     private final static Logger log = LoggerFactory.getLogger(CartchufiServiceImpl.class);
     private final TelegramBotService botService;
     private final DatabaseService databaseService;
+    private final KeycloakClientService keycloakClientService;
 
-    public CartchufiServiceImpl(TelegramBotService botService, DatabaseService databaseService) {
+    public CartchufiServiceImpl(TelegramBotService botService, DatabaseService databaseService, KeycloakClientService keycloakClientService) {
         this.botService = botService;
         this.databaseService = databaseService;
+        this.keycloakClientService = keycloakClientService;
     }
 
     @Override
@@ -57,8 +58,8 @@ public class CartchufiServiceImpl implements CartchufiService {
         final var sticky = Sticky.builder()
                 .id(UUID.randomUUID())
                 .message(createSticky.getMessage())
-                .actions(createActionsToActions(createSticky.getActions()))
-                .locations(createLocationsToLocations(createSticky.getLocations()))
+                .actions(mapTs(this::createActionToAction).apply(createSticky.getActions()))
+                .locations(mapTs(this::createLocationToLocation).apply(createSticky.getLocations()))
                 .build();
         Future.<Boolean>future(c ->
                 databaseService.addSticky(sticky, c)
@@ -68,18 +69,6 @@ public class CartchufiServiceImpl implements CartchufiService {
             }
             return failedFuture("something went wrong");
         }).onComplete(result);
-    }
-
-    private <F, T> List<T> mapElements(List<F> elements, Function<F, T> mapper) {
-        return elements.stream().map(mapper).collect(toList());
-    }
-
-    private List<Action> createActionsToActions(List<CreateAction> createActions) {
-        return mapElements(createActions, this::createActionToAction);
-    }
-
-    private List<Location> createLocationsToLocations(List<CreateLocation> createLocations) {
-        return mapElements(createLocations, this::createLocationToLocation);
     }
 
     private Location createLocationToLocation(CreateLocation location) {
@@ -138,7 +127,27 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     @Override
     public final void getRoles(Handler<AsyncResult<List<Role>>> result) {
-        future(databaseService::getRoles).onComplete(result);
+        Future.succeededFuture(Arrays.stream(Constants.PersonnelRole.values())
+                .map(getPersonnelRoleRoleMapper())
+                .collect(toList())).onComplete(result);
+    }
+
+    private Function<Constants.PersonnelRole, Role> getPersonnelRoleRoleMapper() {
+        return pr -> Role.builder()
+                .id(pr.getUuid())
+                .type(pr.getName())
+                .build();
+    }
+
+    @Override
+    public final void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result) {
+        Future.<Location>future(f -> databaseService.getLocation(personnel.getLocationId().toString(), f))
+                .map(location -> UserProfile.builder()
+                        .role(getPersonnelRoleRoleMapper().apply(personnel.getRole()))
+                        .location(location)
+                        .personnel(personnel)
+                        .build())
+                .onComplete(result);
     }
 
     @Override
@@ -305,22 +314,45 @@ public class CartchufiServiceImpl implements CartchufiService {
     public final void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result) {
         Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
                 .flatMap(p -> {
+                    final var newRoleOpt = updatePersonnel.getRoleId().flatMap(Constants.PersonnelRole::from);
+                    final var userId = UUID.fromString(personnelId);
+
+                    final var keycloakUpdate = newRoleOpt.map(role -> {
+                        final var keyU = KeyUserRoleUpdate.builder()
+                                .personnelId(userId)
+                                .personnelRole(role)
+                                .build();
+                        return Future.<Void>future(t -> keycloakClientService.userRoleUpdate(keyU, t));
+                    }).orElse(Future.succeededFuture());
+
                     final var pers = Personnel.builder()
-                            .id(UUID.fromString(personnelId))
+                            .id(userId)
                             .firstName(updatePersonnel.getFirstName().or(p::getFirstName))
                             .lastName(updatePersonnel.getLastName().or(p::getLastName))
                             .email(updatePersonnel.getEmail().or(p::getEmail))
                             .role(updatePersonnel.getRoleId().flatMap(Constants.PersonnelRole::from).orElse(p.getRole()))
                             .locationId(updatePersonnel.getLocationId().orElse(p.getLocationId()))
                             .build();
-                    return Future.<Boolean>future(ft -> databaseService.updatePersonnel(pers, ft))
+                    final var databaseUpdate = Future.<Boolean>future(ft -> databaseService.updatePersonnel(pers, ft));
+                    return CompositeFuture.all(databaseUpdate, keycloakUpdate)
                             .flatMap(e -> {
-                                if (e) {
-                                    return succeededFuture(pers);
-                                }
-                                return failedFuture("failed to update the personnel");
-                            });
+                                        if (e.succeeded()) {
+                                            return succeededFuture(pers);
+                                        }
+                                        return failedFuture("failed to update the personnel");
+                                    }
+
+                            );
                 }).onComplete(result);
+    }
+
+    @Override
+    public final void deletePersonnel(String personnelId, Handler<AsyncResult<Void>> result) {
+        final var keycloakDelete = Future.<Void>future(f -> keycloakClientService.deleteUser(KeyUserDelete.builder().personnelId(UUID.fromString(personnelId)).build(), f));
+        final var dbDelete = Future.<Boolean>future(f -> databaseService.deletePersonnel(personnelId, f));
+        CompositeFuture.all(keycloakDelete, dbDelete)
+                .<Void>mapEmpty()
+                .onComplete(result);
     }
 
     @Override
@@ -331,7 +363,7 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     @Override
     public final void findPersonnel(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
-        Future.<List<Personnel>>future(f -> databaseService.findPersonnelWithUsername(filter, f))
+        Future.<List<Personnel>>future(f -> databaseService.findPersonnelWithFilter(filter, f))
                 .onComplete(result);
     }
 
@@ -499,7 +531,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .map(usa -> Future.<Boolean>future(f ->
                                     databaseService.updateStickyActions(stickyId,
                                             UpdateStickyAction.builder()
-                                                    .add(createActionsToActions(usa.getAdd()))
+                                                    .add(mapTs(this::createActionToAction).apply(usa.getAdd()))
                                                     .update(updateActions(usa.getUpdate(), s.getActions()))
                                                     .activate(usa.getActivate())
                                                     .remove(usa.getRemove())
@@ -511,7 +543,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                             .map(usl -> Future.<Boolean>future(f ->
                                     databaseService.updateStickyLocation(stickyId,
                                             UpdateStickyLocation.builder()
-                                                    .add(createLocationsToLocations(usl.getAdd()))
+                                                    .add(mapTs(this::createLocationToLocation).apply(usl.getAdd()))
                                                     .update(updateLocation(usl.getUpdate(), s.getLocations()))
                                                     .activate(usl.getActivate())
                                                     .remove(usl.getRemove())

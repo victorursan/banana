@@ -18,13 +18,16 @@ import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.utils.CallbackUtils;
+import com.victor.banana.utils.Constants;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
+import io.netty.util.internal.StringUtil;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
+import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
@@ -83,9 +86,9 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void findPersonnelWithUsername(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
+    public final void findPersonnelWithFilter(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
         final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE.getUuid()));
-        final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating));
+        final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating)).and(PERSONNEL.ACTIVE.eq(true));
         filter.getUsername().ifPresentOrElse(username ->
                 queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
                         .from(PERSONNEL)
@@ -110,7 +113,21 @@ public class DatabaseServiceImpl implements DatabaseService {
                 .set(PERSONNEL.EMAIL, personnel.getEmail().orElse(null))
                 .set(PERSONNEL.LOCATION_ID, personnel.getLocationId())
                 .set(PERSONNEL.ROLE_ID, personnel.getRole().getUuid())
-                .where(PERSONNEL.PERSONNEL_ID.eq(personnel.getId())).and(isNotAdmin))
+                .where(PERSONNEL.PERSONNEL_ID.eq(personnel.getId()).and(isNotAdmin)))
+                .map(i -> i == 1)
+                .onComplete(result);
+    }
+
+    @Override
+    public final void deletePersonnel(String personnelId, Handler<AsyncResult<Boolean>> result) {
+        queryExecutor.execute(c -> c.update(PERSONNEL)
+                .set(PERSONNEL.FIRST_NAME, StringUtils.EMPTY)
+                .set(PERSONNEL.LAST_NAME, StringUtils.EMPTY)
+                .set(PERSONNEL.EMAIL, StringUtils.EMPTY)
+                .set(PERSONNEL.LOCATION_ID, NO_LOCATION)
+                .set(PERSONNEL.ROLE_ID, NO_ROLE.getUuid())
+                .set(PERSONNEL.ACTIVE, false)
+                .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnelId)).and(isNotAdmin)))
                 .map(i -> i == 1)
                 .onComplete(result);
     }
@@ -138,7 +155,7 @@ public class DatabaseServiceImpl implements DatabaseService {
                         return c.selectDistinct(TELEGRAM_CHANNEL.CHAT_ID).from(TELEGRAM_CHANNEL)
                                 .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
                                 .where(PERSONNEL.ROLE_ID.eq(rowId)
-                                        .and(PERSONNEL.CHECKED_IN.eq(true))
+                                        .and(TELEGRAM_CHANNEL.CHECKED_IN.eq(true))
                                         .and(PERSONNEL.LOCATION_ID.in(locationIds)));
                     });
                 }
@@ -155,8 +172,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void setCheckedIn(Long chatId, Boolean checkedIn, Handler<AsyncResult<Boolean>> result) {
-        queryExecutor.execute(c -> c.update(PERSONNEL).set(PERSONNEL.CHECKED_IN, checkedIn).from(TELEGRAM_CHANNEL)
-                .where(PERSONNEL.PERSONNEL_ID.eq(TELEGRAM_CHANNEL.PERSONNEL_ID).and(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId))))
+        queryExecutor.execute(c -> c.update(TELEGRAM_CHANNEL).set(TELEGRAM_CHANNEL.CHECKED_IN, checkedIn).where(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId)))
                 .map(i -> i == 1)
                 .onComplete(result);
     }
@@ -197,11 +213,11 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void getTicketMessageForTicket(String ticketId, Handler<AsyncResult<List<ChatTicketMessage>>> result) {
         queryExecutor.findManyRow(c ->
                 c.selectDistinct(CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID)
-                .from(CHAT_TICKET_MESSAGE)
-                .innerJoin(TELEGRAM_CHANNEL).using(TELEGRAM_CHANNEL.CHAT_ID)
-                .innerJoin(PERSONNEL).using(TELEGRAM_CHANNEL.PERSONNEL_ID)
-                .where(CHAT_TICKET_MESSAGE.TICKET_ID.eq(UUID.fromString(ticketId)).and(PERSONNEL.CHECKED_IN.eq(true)))
-                .and(CHAT_TICKET_MESSAGE.VISIBLE.eq(true)))
+                        .from(CHAT_TICKET_MESSAGE)
+                        .innerJoin(TELEGRAM_CHANNEL).using(TELEGRAM_CHANNEL.CHAT_ID)
+                        .where(CHAT_TICKET_MESSAGE.TICKET_ID.eq(UUID.fromString(ticketId))
+                                .and(TELEGRAM_CHANNEL.CHECKED_IN.eq(true)))
+                        .and(CHAT_TICKET_MESSAGE.VISIBLE.eq(true)))
                 .map(mapTs(rowToChatTicketMessage()))
                 .onComplete(result);
     }
@@ -273,9 +289,11 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public void getRoles(Handler<AsyncResult<List<Role>>> result) {
-        queryExecutor.findManyRow(c -> c.select(ROLE.ROLE_ID, ROLE.ROLE_TYPE).from(ROLE).where(ROLE.ACTIVE.eq(true)))
-                .map(mapTs(rowToRole()))
+    public final void getLocation(String locationId, Handler<AsyncResult<Location>> result) {
+        queryExecutor.findOneRow(c -> c.select(LOCATION.LOCATION_ID, LOCATION.PARENT_LOCATION, LOCATION.MESSAGE).from(LOCATION)
+                .leftOuterJoin(STICKY_LOCATION).using(LOCATION.LOCATION_ID)
+                .where(STICKY_LOCATION.LOCATION_ID.isNull().and(LOCATION.LOCATION_ID.eq(UUID.fromString(locationId)))))
+                .map(rowToLocation())
                 .onComplete(result);
     }
 

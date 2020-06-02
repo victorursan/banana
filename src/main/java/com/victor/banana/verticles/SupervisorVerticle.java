@@ -33,11 +33,13 @@ public class SupervisorVerticle extends AbstractVerticle {
         final var httpConf = configs.getJsonObject("httpServer");
         final var botConf = configs.getJsonObject("bot");
         final var dbConf = configs.getJsonObject("db");
+        final var keycloakClientConf = configs.getJsonObject("keycloak-client");
         DatabindCodec.mapper().registerModule(new Jdk8Module());
         return deployVerticle(HttpServerVerticle::new, httpConf)
                 .flatMap(ignore -> deployVerticle(TelegramBotVerticle::new, botConf))
                 .flatMap(ignore -> deployVerticle(DatabaseVerticle::new, dbConf))
-                .flatMap(ignore -> deployVerticle(CartchufiVerticle::new, null));
+                .flatMap(ignore -> deployVerticle(CartchufiVerticle::new, null))
+                .flatMap(ignore -> deployVerticle(KeycloakClientVerticle::new, keycloakClientConf));
     }
 
     private Future<Void> deployVerticle(Supplier<Verticle> verticleSupply, JsonObject config) {
