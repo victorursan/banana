@@ -1,5 +1,6 @@
 package com.victor.banana.services.impl;
 
+import com.victor.banana.controllers.db.QueryHandler;
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TelegramChannel;
@@ -18,9 +19,7 @@ import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.utils.CallbackUtils;
-import com.victor.banana.utils.Constants;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
-import io.netty.util.internal.StringUtil;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Handler;
@@ -29,9 +28,13 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.pgclient.PgPool;
 import org.apache.commons.lang3.StringUtils;
 import org.jooq.DSLContext;
+import org.jooq.Record10;
+import org.jooq.Record7;
+import org.jooq.SelectJoinStep;
 import org.jooq.impl.DSL;
 import org.jooq.impl.DefaultConfiguration;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,6 +43,7 @@ import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
 import static com.victor.banana.utils.Constants.DBConstants.NO_LOCATION;
+import static com.victor.banana.utils.Constants.DBConstants.NO_PERSONNEL;
 import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
 import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.failedFuture;
@@ -78,8 +82,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
-        queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
-                .from(PERSONNEL)
+        queryExecutor.findOneRow(c -> selectPersonnel(c)
                 .where(PERSONNEL.PERSONNEL_ID.eq(UUID.fromString(personnelId))))
                 .flatMap(rowToPersonnelF())
                 .onComplete(result);
@@ -90,19 +93,22 @@ public class DatabaseServiceImpl implements DatabaseService {
         final var operating = PERSONNEL.LOCATION_ID.notEqual(NO_LOCATION).and(PERSONNEL.ROLE_ID.notEqual(NO_ROLE.getUuid()));
         final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating)).and(PERSONNEL.ACTIVE.eq(true));
         filter.getUsername().ifPresentOrElse(username ->
-                queryExecutor.findOneRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
-                        .from(PERSONNEL)
-                        .innerJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID)
+                queryExecutor.findOneRow(c -> selectPersonnel(c)
                         .where(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))))
                         .flatMap(rowToPersonnelF())
                         .map(List::of)
                         .onComplete(result), () ->
-                queryExecutor.findManyRow(c -> c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL)
-                        .from(PERSONNEL)
+                queryExecutor.findManyRow(c -> selectPersonnel(c)
                         .where(isOperating))
                         .map(mapTs(rowToPersonnel()))
                         .onComplete(result)
         );
+    }
+
+    public SelectJoinStep<Record7<UUID, UUID, UUID, String, String, String, String>> selectPersonnel(DSLContext c) {
+        return c.selectDistinct(PERSONNEL.PERSONNEL_ID, PERSONNEL.LOCATION_ID, PERSONNEL.ROLE_ID, PERSONNEL.FIRST_NAME, PERSONNEL.LAST_NAME, PERSONNEL.EMAIL, TELEGRAM_CHANNEL.USERNAME)
+                .from(PERSONNEL)
+                .leftJoin(TELEGRAM_CHANNEL).using(PERSONNEL.PERSONNEL_ID);
     }
 
     @Override
@@ -180,10 +186,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void ticketsViableForChat(Long chatId, TicketState ticketState, Handler<AsyncResult<List<Ticket>>> result) {//todo
         final var state = ticketStateToState(ticketState);
-        queryExecutor.findManyRow(c ->
-                c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
-                        .from(TICKET)
-                        .where(TICKET.STATE.eq(state)))
+        queryExecutor.findManyRow(c -> selectTicket(c).where(TICKET.STATE.eq(state)))
                 .map(mapTs(rowToTicket()))
                 .onComplete(result);
     }
@@ -225,11 +228,9 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getTicketsInStateForChat(Long chatId, TicketState ticketState, Handler<AsyncResult<List<Ticket>>> result) {
         final var state = ticketStateToState(ticketState);
-        queryExecutor.findManyRow(c ->
-                c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
-                        .from(TICKET)
+        queryExecutor.findManyRow(c -> selectTicket(c)
                         .innerJoin(CHAT_TICKET_MESSAGE).using(TICKET.TICKET_ID)
-                        .innerJoin(TELEGRAM_CHANNEL).on(TELEGRAM_CHANNEL.PERSONNEL_ID.eq(TICKET.AQUIRED_BY))
+                        .innerJoin(TELEGRAM_CHANNEL).on(TELEGRAM_CHANNEL.PERSONNEL_ID.eq(TICKET.OWNED_BY))
                         .where(TELEGRAM_CHANNEL.CHAT_ID.eq(chatId).and(TICKET.STATE.eq(state))))
                 .map(mapTs(rowToTicket()))
                 .onComplete(result);
@@ -237,11 +238,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getTicketForMessage(Long chatId, Long messageId, Handler<AsyncResult<Ticket>> result) {
-        queryExecutor.findOneRow(c ->
-                c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE)
-                        .from(CHAT_TICKET_MESSAGE)
-                        .innerJoin(TICKET)
-                        .using(TICKET.TICKET_ID)
+        queryExecutor.findOneRow(c -> selectTicket(c)
+                                .innerJoin(CHAT_TICKET_MESSAGE).using(TICKET.TICKET_ID)
                         .where(CHAT_TICKET_MESSAGE.CHAT_ID.eq(chatId).and(CHAT_TICKET_MESSAGE.MESSAGE_ID.eq(messageId))))
                 .flatMap(rowToTicketF())
                 .onComplete(result);
@@ -380,7 +378,7 @@ public class DatabaseServiceImpl implements DatabaseService {
             final var deactivateLocations = deactivateStickyLocationsQ(updates.getRemove()).apply(t);
             updateLocations.addAll(List.of(activateLocations, addStickyLocations, deactivateLocations));
             return mergeFutures(updateLocations)
-                    .map(c -> c.stream().anyMatch(a -> a == true))
+                    .map(c -> c.stream().anyMatch(a -> a))
                     .onComplete(commitUpdateTransaction(t));
         }).onComplete(result);
     }
@@ -402,7 +400,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getActiveTicketForActionSelected(ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result) {
         queryExecutor.findOneRow(c ->
-                c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
+                selectTicket(c)
                         .where(TICKET.ACTION_ID.eq(actionSelected.getActionId()))
                         .and(TICKET.LOCATION_ID.eq(actionSelected.getLocationId()))
                         .and(TICKET.STATE.in(List.of(State.PENDING, State.ACQUIRED))))
@@ -412,7 +410,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result) {
-        queryExecutor.findOneRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
+        queryExecutor.findOneRow(c -> selectTicket(c)
                 .where(TICKET.TICKET_ID.eq(UUID.fromString(ticketId))))
                 .flatMap(rowToTicketF())
                 .onComplete(result);
@@ -421,12 +419,12 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void getTickets(TicketFilter filter, Handler<AsyncResult<List<Ticket>>> result) {
         filter.getForUser().ifPresentOrElse(userId -> {
-            queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET)
+            queryExecutor.findManyRow(c -> selectTicket(c)
                     .innerJoin(PERSONNEL_TICKET).using(TICKET.TICKET_ID)
                     .where(PERSONNEL_TICKET.PERSONNEL_ID.eq(userId)))
                     .map(mapTs(rowToTicket()))
                     .onComplete(result);
-        }, () -> queryExecutor.findManyRow(c -> c.select(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.AQUIRED_BY, TICKET.SOLVED_BY, TICKET.MESSAGE, TICKET.STATE).from(TICKET))
+        }, () -> queryExecutor.findManyRow(QueryHandler::selectTicket)
                 .map(mapTs(rowToTicket()))
                 .onComplete(result));
 
@@ -488,9 +486,10 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void updateTicket(Ticket ticket, Handler<AsyncResult<Boolean>> result) {
         queryExecutor.execute(c ->
                 c.update(TICKET)
-                        .set(TICKET.AQUIRED_BY, ticket.getAcquiredBy().orElse(null))
-                        .set(TICKET.SOLVED_BY, ticket.getSolvedBy().orElse(null))
+                        .set(TICKET.OWNED_BY, ticket.getOwnedBy().orElse(NO_PERSONNEL))
                         .set(TICKET.STATE, ticketStateToState(ticket.getState()))
+                        .set(TICKET.ACQUIRED_AT, ticket.getAcquiredAt().orElse(null))
+                        .set(TICKET.SOLVED_AT, ticket.getSolvedAt().orElse(null))
                         .where(TICKET.TICKET_ID.eq(ticket.getId())))
                 .map(i -> i == 1)
                 .onComplete(result);

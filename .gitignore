@@ -1,6 +1,8 @@
 # Created by .ignore support plugin (hsz.mobi)
 cmake-build-*/
 *.iws
+*.iml
+*.ipr
 out/
 .idea/
 .idea_modules/

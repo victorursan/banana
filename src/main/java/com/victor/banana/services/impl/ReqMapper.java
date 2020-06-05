@@ -1,6 +1,7 @@
 package com.victor.banana.services.impl;
 
 import com.victor.banana.models.events.ActionSelected;
+import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
 import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
@@ -101,11 +102,10 @@ public final class ReqMapper {
         };
     }
 
-    public static Function<UpdateTicketReq, UpdateTicketState> updateTicketStateDeserializer() {
+    public static Function<UpdateTicketReq, UpdateTicketState> updateTicketStateDeserializer(Personnel personnel) {
         return updateTicketReq -> UpdateTicketState.builder()
                 .newTicketState(ticketStateDeserializer(updateTicketReq.getNewState()).orElseThrow()) //todo
-                //todo figure out .personnelId()
-                .personnelId(UUID.fromString("cf338d20-073a-4f28-ad68-a104d02eef9d"))
+                .personnelId(personnel.getId())
                 .build();
     }
 

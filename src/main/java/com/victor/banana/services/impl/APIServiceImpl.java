@@ -10,6 +10,7 @@ import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
 import com.victor.banana.models.requests.*;
+import com.victor.banana.models.responses.TicketResp;
 import com.victor.banana.services.APIService;
 import com.victor.banana.services.CartchufiService;
 import com.victor.banana.utils.SecurityUtils;
@@ -23,6 +24,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -164,7 +166,7 @@ public class APIServiceImpl implements APIService {
             final var ticketId = rc.request().getParam("ticketId");
             final var updateTicketReq = rc.getBodyAsJson().mapTo(UpdateTicketReq.class);
             Future.<Ticket>future(f -> {
-                final var updateTicketState = updateTicketStateDeserializer().apply(updateTicketReq);
+                final var updateTicketState = updateTicketStateDeserializer(personnel).apply(updateTicketReq);
                 cartchufiService.updateTicketState(UUID.fromString(ticketId).toString(), updateTicketState, f);
             })
                     .map(ticketSerializer())
@@ -178,7 +180,7 @@ public class APIServiceImpl implements APIService {
         isUserAuthorized(rc, isUser ? Authority.MEMBER : Authority.COMMUNITY, personnel ->
                 Future.<List<Ticket>>future(f ->
                         cartchufiService.getTickets(TicketFilter.builder().forUser(isUser ? Optional.of(personnel.getId()) : Optional.empty()).build(), f))
-                        .map(mapTs(ticketSerializer()))
+                        .map(mapTs(ticketSerializer(!isUser), Comparator.comparing(TicketResp::getCreatedAt)))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                         .onFailure(failureHandler(rc, 500)));
     }

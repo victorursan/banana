@@ -19,24 +19,32 @@ import io.vertx.core.Future;
 import io.vertx.sqlclient.Row;
 
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static com.victor.banana.jooq.Tables.*;
+import static com.victor.banana.utils.Constants.DBConstants.NO_PERSONNEL;
 import static com.victor.banana.utils.Constants.PersonnelRole.NO_ROLE;
 import static com.victor.banana.utils.MappersHelper.fToTF;
 
 public final class RowMappers {
 
     public static Function<Row, Ticket> rowToTicket() {
-        return r -> Ticket.builder()
-                .id(r.getUUID(TICKET.TICKET_ID.getName()))
-                .actionId(r.getUUID(TICKET.ACTION_ID.getName()))
-                .locationId(r.getUUID(TICKET.LOCATION_ID.getName()))
-                .acquiredBy(Optional.ofNullable(r.getUUID(TICKET.AQUIRED_BY.getName())))
-                .solvedBy(Optional.ofNullable(r.getUUID(TICKET.SOLVED_BY.getName())))
-                .message(r.getString(TICKET.MESSAGE.getName()))
-                .state(ticketToTicketState(State.valueOf(r.getString(TICKET.STATE.getName()))))
-                .build();
+        return r -> {
+            final var ownedBy = r.getUUID(TICKET.OWNED_BY.getName());
+            final var ownedByOpt = ownedBy.equals(NO_PERSONNEL) ? Optional.<UUID>empty() : Optional.of(ownedBy);
+            return Ticket.builder()
+                    .id(r.getUUID(TICKET.TICKET_ID.getName()))
+                    .actionId(r.getUUID(TICKET.ACTION_ID.getName()))
+                    .locationId(r.getUUID(TICKET.LOCATION_ID.getName()))
+                    .ownedBy(ownedByOpt)
+                    .message(r.getString(TICKET.MESSAGE.getName()))
+                    .state(ticketToTicketState(State.valueOf(r.getString(TICKET.STATE.getName()))))
+                    .createdAt(r.getOffsetDateTime(TICKET.CREATED_AT.getName()))
+                    .acquiredAt(Optional.ofNullable(r.getOffsetDateTime(TICKET.ACQUIRED_AT.getName())))
+                    .solvedAt(Optional.ofNullable(r.getOffsetDateTime(TICKET.SOLVED_AT.getName())))
+                    .build();
+        };
     }
 
     public static Function<Row, Personnel> rowToPersonnel() {
@@ -47,6 +55,7 @@ public final class RowMappers {
                 .firstName(Optional.ofNullable(r.getString(PERSONNEL.FIRST_NAME.getName())))
                 .lastName(Optional.ofNullable(r.getString(PERSONNEL.LAST_NAME.getName())))
                 .email(Optional.ofNullable(r.getString(PERSONNEL.EMAIL.getName())))
+                .telegramUsername(Optional.ofNullable(r.getString(TELEGRAM_CHANNEL.USERNAME.getName())))
                 .build();
     }
 
@@ -75,13 +84,6 @@ public final class RowMappers {
                 .roleId(r.getUUID(STICKY_ACTION.ROLE_ID.getName()))
                 .message(r.getString(STICKY_ACTION.MESSAGE.getName()))
                 .state(Optional.ofNullable(r.getUUID(TICKET.TICKET_ID.getName())).map(ignore -> ActionState.IN_PROGRESS).orElse(ActionState.AVAILABLE))
-                .build();
-    }
-
-    public static Function<Row, Role> rowToRole() {
-        return r -> Role.builder()
-                .id(r.getUUID(ROLE.ROLE_ID.getName()))
-                .type(r.getString(ROLE.ROLE_TYPE.getName()))
                 .build();
     }
 

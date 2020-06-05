@@ -4,6 +4,9 @@ import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,16 +39,19 @@ public interface TicketAction {
     private static TicketAction ticketActionFor(Ticket oldTicket, Optional<Long> chatId, String username, TicketState newTicketState, UUID personnelId) {
         switch (newTicketState) {
             case PENDING -> {
-                oldTicket.setAcquiredBy(empty());
-                oldTicket.setSolvedBy(empty());
+                oldTicket.setOwnedBy(empty());
+                oldTicket.setAcquiredAt(empty());
+                oldTicket.setSolvedAt(empty());
             }
             case ACQUIRED -> {
-                oldTicket.setAcquiredBy(Optional.of(personnelId));
-                oldTicket.setSolvedBy(empty());
+                oldTicket.setOwnedBy(Optional.of(personnelId));
+                oldTicket.setAcquiredAt(Optional.of(OffsetDateTime.now(ZoneOffset.UTC)));
+                oldTicket.setSolvedAt(empty());
             }
             case SOLVED -> {
-                oldTicket.setAcquiredBy(Optional.of(oldTicket.getAcquiredBy().orElse(personnelId)));
-                oldTicket.setSolvedBy(Optional.of(personnelId));
+                oldTicket.setOwnedBy(Optional.of(personnelId));
+                oldTicket.setAcquiredAt(Optional.of(oldTicket.getAcquiredAt().orElse(OffsetDateTime.now(ZoneOffset.UTC))));
+                oldTicket.setSolvedAt(Optional.of(OffsetDateTime.now(ZoneOffset.UTC)));
             }
         }
         oldTicket.setState(newTicketState);

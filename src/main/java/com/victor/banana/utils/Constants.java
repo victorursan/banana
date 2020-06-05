@@ -69,6 +69,7 @@ public final class Constants {
 
     public static class DBConstants {
         public static final UUID NO_LOCATION = UUID.fromString("95c12221-2314-4d1f-bf25-bd30d969c49f");
+        public static final UUID NO_PERSONNEL = UUID.fromString("cf338d20-073a-4f28-ad68-a104d02eef9d");
     }
 
     public static class EventbusAddress {

@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -50,6 +51,13 @@ public final class MappersHelper {
     public static <E, T> Function<List<E>, List<T>> mapTs(Function<E, T> mapper) {
         return elements -> elements.stream()
                 .flatMap(fToTS(mapper))
+                .collect(toList());
+    }
+
+    public static <E, T> Function<List<E>, List<T>> mapTs(Function<E, T> mapper, Comparator<? super T> comparator) {
+        return elements -> elements.stream()
+                .flatMap(fToTS(mapper))
+                .sorted(comparator)
                 .collect(toList());
     }
 

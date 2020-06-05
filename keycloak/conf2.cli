@@ -1,0 +1,6 @@
+embed-server -c=standalone.xml
+
+/subsystem=logging/json-formatter=JSON_FORMATTER:add(pretty-print=false, exception-output-type=detailed-and-formatted, print-details=false)
+/subsystem=logging/console-handler=CONSOLE/:write-attribute(name=enabled,value=false)
+/subsystem=logging/console-handler=JSON_CONSOLE:add(enabled=true, named-formatter=JSON_FORMATTER)
+/subsystem=logging/root-logger=ROOT/:write-attribute(name=handlers,value=["JSON_CONSOLE"])

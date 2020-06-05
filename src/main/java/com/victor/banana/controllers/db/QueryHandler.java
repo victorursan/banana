@@ -20,7 +20,11 @@ import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.jooq.Condition;
+import org.jooq.DSLContext;
+import org.jooq.Record9;
+import org.jooq.SelectJoinStep;
 
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -296,6 +300,11 @@ public final class QueryHandler {
         ).map(i -> i == 1 || i == 0);
     }
 
+
+    public static SelectJoinStep<Record9<UUID, UUID, UUID, UUID, String, State, OffsetDateTime, OffsetDateTime, OffsetDateTime>> selectTicket(DSLContext c) {
+        return c.selectDistinct(TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.OWNED_BY, TICKET.MESSAGE, TICKET.STATE, TICKET.CREATED_AT, TICKET.ACQUIRED_AT, TICKET.SOLVED_AT).from(TICKET);
+    }
+
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addTicketQ(Ticket ticket) {
         return t -> t.execute(c -> c.insertInto(TICKET, TICKET.TICKET_ID, TICKET.ACTION_ID, TICKET.LOCATION_ID, TICKET.MESSAGE, TICKET.STATE)
                 .values(ticket.getId(), ticket.getActionId(), ticket.getLocationId(), ticket.getMessage(), ticketStateToState(ticket.getState())))
@@ -321,13 +330,18 @@ public final class QueryHandler {
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> addTicketsMessageQ(List<SentTicketMessage> chatMessages) {
-        return t -> t.execute(c -> {
-            final var insert = c.insertInto(CHAT_TICKET_MESSAGE, CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID, CHAT_TICKET_MESSAGE.VISIBLE);
-            chatMessages.forEach(chatMessage ->
-                    insert.values(chatMessage.getMessageId(), chatMessage.getChatId(), chatMessage.getTicketId(), true));
-            return insert.onConflictDoNothing();
-        })
-                .map(i -> i == chatMessages.size());
+        return t -> {
+            if (chatMessages.isEmpty()) {
+                return Future.succeededFuture();
+            }
+            return t.execute(c -> {
+                final var insert = c.insertInto(CHAT_TICKET_MESSAGE, CHAT_TICKET_MESSAGE.MESSAGE_ID, CHAT_TICKET_MESSAGE.CHAT_ID, CHAT_TICKET_MESSAGE.TICKET_ID, CHAT_TICKET_MESSAGE.VISIBLE);
+                chatMessages.forEach(chatMessage ->
+                        insert.values(chatMessage.getMessageId(), chatMessage.getChatId(), chatMessage.getTicketId(), true));
+                return insert.onConflictDoNothing();
+            })
+                    .map(i -> i == chatMessages.size());
+        };
     }
 
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> hideTicketsMessageQ(List<SentDeleteMessage> chatMessages) {

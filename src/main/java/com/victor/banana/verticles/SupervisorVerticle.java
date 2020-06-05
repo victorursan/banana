@@ -1,6 +1,8 @@
 package com.victor.banana.verticles;
 
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import io.netty.util.internal.logging.InternalLoggerFactory;
 import io.netty.util.internal.logging.Slf4JLoggerFactory;
 import io.vertx.config.ConfigRetriever;
@@ -9,11 +11,12 @@ import io.vertx.config.ConfigStoreOptions;
 import io.vertx.core.*;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.jackson.DatabindCodec;
-import io.vertx.core.logging.LoggerFactory;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
+import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS;
 import static io.vertx.core.Future.future;
 
 public class SupervisorVerticle extends AbstractVerticle {
@@ -34,7 +37,14 @@ public class SupervisorVerticle extends AbstractVerticle {
         final var botConf = configs.getJsonObject("bot");
         final var dbConf = configs.getJsonObject("db");
         final var keycloakClientConf = configs.getJsonObject("keycloak-client");
-        DatabindCodec.mapper().registerModule(new Jdk8Module());
+
+        DatabindCodec.mapper().registerModule(new ParameterNamesModule())
+                .registerModule(new Jdk8Module())
+                .registerModule(new JavaTimeModule())
+                .disable(WRITE_DATES_AS_TIMESTAMPS);
+//        DatabindCodec.mapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//        DatabindCodec.mapper().setDateFormat(new StdDateFormat().withColonInTimeZone(true));
+
         return deployVerticle(HttpServerVerticle::new, httpConf)
                 .flatMap(ignore -> deployVerticle(TelegramBotVerticle::new, botConf))
                 .flatMap(ignore -> deployVerticle(DatabaseVerticle::new, dbConf))

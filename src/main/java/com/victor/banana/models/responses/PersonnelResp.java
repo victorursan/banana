@@ -16,6 +16,7 @@ public class PersonnelResp {
     private Optional<String> firstName;
     private Optional<String> lastName;
     private Optional<String> email;
+    private Optional<String> username;
     private UUID locationId;
     private UUID roleId;
 }

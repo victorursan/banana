@@ -22,14 +22,17 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @DataObject
 public class Personnel {
     private UUID id;
+    private UUID locationId;
+    private PersonnelRole role;
+
     @Builder.Default
     private Optional<String> firstName = Optional.empty();
     @Builder.Default
     private Optional<String> lastName = Optional.empty();
     @Builder.Default
     private Optional<String> email = Optional.empty();
-    private UUID locationId;
-    private PersonnelRole role;
+    @Builder.Default
+    private Optional<String> telegramUsername = Optional.empty();
 
     public Personnel(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);

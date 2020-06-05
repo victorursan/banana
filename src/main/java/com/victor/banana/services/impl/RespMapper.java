@@ -39,6 +39,7 @@ public final class RespMapper {
                 .firstName(p.getFirstName())
                 .lastName(p.getLastName())
                 .email(p.getEmail())
+                .username(p.getTelegramUsername())
                 .locationId(p.getLocationId())
                 .roleId(p.getRole().getUuid())
                 .build();
@@ -46,11 +47,23 @@ public final class RespMapper {
 
 
     public static Function<Ticket, TicketResp> ticketSerializer() {
-        return t -> TicketResp.builder()
-                .ticketId(t.getId())
-                .message(t.getMessage())
-                .state(ticketStateSerializer(t.getState()))
-                .build();
+        return ticketSerializer(false);
+    }
+
+    public static Function<Ticket, TicketResp> ticketSerializer(boolean full) {
+        return t -> {
+            final var ticketRespB = TicketResp.builder()
+                    .ticketId(t.getId())
+                    .message(t.getMessage())
+                    .state(ticketStateSerializer(t.getState()))
+                    .createdAt(t.getCreatedAt());
+            if (full) {
+                ticketRespB.acquiredAt(t.getAcquiredAt())
+                        .solvedAt(t.getSolvedAt())
+                        .ownedBy(t.getOwnedBy());
+            }
+            return ticketRespB.build();
+        };
     }
 
     public static Function<StickyLocation, StickyLocationResp> stickyLocationSerializer() {
