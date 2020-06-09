@@ -40,8 +40,8 @@ CREATE TABLE personnel (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
 
-INSERT INTO personnel (personnel_id, location_id, role_id)
-VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d', '929abc9f-f34f-4a44-9928-863d9dfbe705', '53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1');
+INSERT INTO personnel (personnel_id)
+VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d');
 
 CREATE TABLE sticky (
     sticky_id UUID NOT NULL PRIMARY KEY,
@@ -96,9 +96,8 @@ CREATE TABLE ticket (
     location_id UUID NOT NULL REFERENCES sticky_location(location_id),
     message TEXT NOT NULL,
     state STATE NOT NULL,
-    aquired_by UUID REFERENCES personnel(personnel_id),
-    aquired_at TIMESTAMP WITH TIME ZONE,
-    solved_by UUID REFERENCES personnel(personnel_id),
+    owned_by UUID NOT NULL DEFAULT 'cf338d20-073a-4f28-ad68-a104d02eef9d' REFERENCES personnel(personnel_id),
+    acquired_at TIMESTAMP WITH TIME ZONE,
     solved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp

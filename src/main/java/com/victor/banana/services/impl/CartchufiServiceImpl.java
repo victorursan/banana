@@ -141,13 +141,16 @@ public class CartchufiServiceImpl implements CartchufiService {
 
     @Override
     public final void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result) {
-        Future.<Location>future(f -> databaseService.getLocation(personnel.getLocationId().toString(), f))
+        getUserProfile(personnel).onComplete(result);
+    }
+
+    private Future<UserProfile> getUserProfile(Personnel personnel) {
+        return Future.<Location>future(f -> databaseService.getLocation(personnel.getLocationId().toString(), f))
                 .map(location -> UserProfile.builder()
                         .role(getPersonnelRoleRoleMapper().apply(personnel.getRole()))
                         .location(location)
                         .personnel(personnel)
-                        .build())
-                .onComplete(result);
+                        .build());
     }
 
     @Override
@@ -356,9 +359,25 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
+    public final void addTelegramToUserProfile(TelegramLoginData telegramLoginData, Handler<AsyncResult<UserProfile>> result) {
+        final var personnelId = telegramLoginData.getPersonnel().getId();
+        createTelegramChannel(personnelId, telegramLoginData.getChatId(), telegramLoginData.getUsername())
+                .flatMap(r -> {
+                    if (r) {
+                        return getPersonnel(personnelId.toString()).flatMap(this::getUserProfile);
+                    }
+                    return Future.failedFuture("Failed to create TelegramChannel");
+                }).onComplete(result);
+    }
+
+
+    @Override
     public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
-        Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
-                .onComplete(result);
+        getPersonnel(personnelId).onComplete(result);
+    }
+
+    private Future<Personnel> getPersonnel(String personnelId) {
+        return Future.future(f -> databaseService.getPersonnel(personnelId, f));
     }
 
     @Override
@@ -468,7 +487,7 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .message(recvPersonnelMessage.getMessage())
                 .build();
 
-        Future.<Boolean>future(f -> createTelegramChannel(recvPersonnelMessage.getChannel(), f))
+        Future.<Boolean>future(f -> createChannel(recvPersonnelMessage.getChannel(), f))
                 .flatMap(chatExists -> {
                     if (chatExists) {
                         return Future.<Boolean>future(c -> databaseService.addMessage(message, c)).map(message);
@@ -479,29 +498,37 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onSuccess(m -> log.info("Added message: " + m.toString()));
     }
 
+    private Future<Boolean> createPersonnel(UUID personnelId, Optional<String> firstName, Optional<String> lastName) {
+        final var personnel = Personnel.builder()
+                .id(personnelId)
+                .firstName(firstName)
+                .lastName(lastName)
+                .email(Optional.empty())
+                .locationId(NO_LOCATION)
+                .role(NO_ROLE)
+                .build();
+        return Future.future(e -> databaseService.addPersonnel(personnel, e));
+    }
+
+    private Future<Boolean> createTelegramChannel(UUID personnelId, Long chatId, String username) {
+        final var chat = TelegramChannel.builder()
+                .chatId(chatId)
+                .personnelId(personnelId)
+                .username(username)
+                .build();
+        return Future.future(e -> databaseService.addChat(chat, e));
+    }
+
     @Override
-    public void createTelegramChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result) {
+    public void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result) {
         Future.<TelegramChannel>future((e -> databaseService.getChat(createChannel.getChatId(), e)))
                 .map(i -> true)
                 .recover(t -> {
-                    final var personnel = Personnel.builder()
-                            .id(UUID.randomUUID())
-                            .firstName(createChannel.getFirstName())
-                            .lastName(createChannel.getLastName())
-                            .email(Optional.empty())
-                            .locationId(NO_LOCATION)
-                            .role(NO_ROLE)
-                            .build();
-                    final var chat = TelegramChannel.builder()
-                            .chatId(createChannel.getChatId())
-                            .personnelId(personnel.getId())
-                            .username(createChannel.getUsername())
-                            .build();
-
-                    return Future.<Boolean>future(e -> databaseService.addPersonnel(personnel, e))
+                    final var personnelId = UUID.randomUUID();
+                    return createPersonnel(personnelId, createChannel.getFirstName(), createChannel.getLastName())
                             .flatMap(personnelExist -> {
                                 if (personnelExist) {
-                                    return Future.<Boolean>future(e -> databaseService.addChat(chat, e));
+                                    return createTelegramChannel(personnelId, createChannel.getChatId(), createChannel.getUsername());
                                 }
                                 return failedFuture("didn't find row");
                             });

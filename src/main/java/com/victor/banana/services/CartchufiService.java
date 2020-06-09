@@ -1,13 +1,10 @@
 package com.victor.banana.services;
 
-import com.victor.banana.models.events.ActionSelected;
-import com.victor.banana.models.events.TokenUser;
-import com.victor.banana.models.events.UserProfile;
+import com.victor.banana.models.events.*;
 import com.victor.banana.models.events.messages.CreateChannelMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
-import com.victor.banana.models.events.UpdateTicketState;
 import com.victor.banana.models.events.locations.CreateLocation;
 import com.victor.banana.models.events.roles.CreateRole;
 import com.victor.banana.models.events.locations.Location;
@@ -75,7 +72,7 @@ public interface CartchufiService {
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 
-    void createTelegramChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result);
+    void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result);
 
     void receivedMessageUpdate(RecvUpdateMessage updateMessage);
 
@@ -88,6 +85,8 @@ public interface CartchufiService {
     void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result);
 
     void deletePersonnel(String personnelId, Handler<AsyncResult<Void>> result);
+
+    void addTelegramToUserProfile(TelegramLoginData telegramLoginData, Handler<AsyncResult<UserProfile>> result);
 
     static CartchufiService createProxy(Vertx vertx, String address) {
         return new CartchufiServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);

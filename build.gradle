@@ -39,15 +39,15 @@ run {
 
 ext {
     vertxVersion = '3.9.1'
-    telegrambotsVersion = '4.8.1'
+    telegrambotsVersion = '4.9'
     slf4jVersion = '1.7.30'
     jooqVersion = '3.13.2'
     lombokVersion = '1.18.12'
-    postgresqlVersion = '42.2.12'
+    postgresqlVersion = '42.2.13'
     vertxJooqVersion = '5.1.1'
     jacksonVersion = '2.11.0'
     apacheCommonsVersion = '1.8'
-    keycloakVersion = '10.0.1'
+    keycloakVersion = '10.0.2'
     logbackVersion = '1.2.3'
     logstashVersion = '6.3'
 }
@@ -110,7 +110,7 @@ tasks.withType(JavaCompile) {
 }
 
 wrapper {
-    gradleVersion = '6.4'
+    gradleVersion = '6.5'
 }
 
 jooq {

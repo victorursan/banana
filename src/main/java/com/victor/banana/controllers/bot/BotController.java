@@ -7,12 +7,9 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.text.StringEscapeUtils;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
@@ -54,7 +51,7 @@ public final class BotController extends TelegramLongPollingBot {
                     .lastName(chat.getLastName())
                     .username(String.format("@%s", chat.getUserName()))
                     .build();
-            Future.<Boolean>future(f -> cartchufiService.createTelegramChannel(createChannelMessage, f))
+            Future.<Boolean>future(f -> cartchufiService.createChannel(createChannelMessage, f))
                     .onSuccess(s -> {
                         if (!s) {
                             log.error("Creation of telegram channel failed");

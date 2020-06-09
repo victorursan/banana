@@ -1,4 +1,4 @@
-FROM jboss/keycloak:10.0.1
+FROM jboss/keycloak:10.0.2
 COPY ./conf.cli /tmp/conf.cli
 COPY ./conf2.cli /tmp/conf2.cli
 COPY ./realm-export.json /tmp/realm-export.json

@@ -526,6 +526,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /profile/telegram:
+    post:
+      #      security:
+      #        - bearerAuth: ['admin']
+      summary: Add telegram to user profile
+      tags:
+        - profile
+      operationId: addTelegramToUser
+      requestBody:
+        required: true
+        description: The telegram account to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramLoginData'
+      responses:
+        '200':
+          description: The user's profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /profile:
     get:
       summary: Get profile info
@@ -576,6 +606,22 @@ components:
 #      openIdConnectUrl: http://localhost:8080/auth/realms/banana-cartchufi/.well-known/openid-configuration
 
   schemas:
+    TelegramLoginData:
+      type: object
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+
     UserProfile:
       type: object
       required:

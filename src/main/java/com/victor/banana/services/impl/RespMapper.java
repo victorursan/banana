@@ -101,6 +101,7 @@ public final class RespMapper {
                 .lastName(userProfile.getPersonnel().getLastName().orElse(StringUtils.EMPTY))
                 .role(roleSerializer().apply(userProfile.getRole()))
                 .location(locationSerializer().apply(userProfile.getLocation()))
+                .telegramUsername(userProfile.getPersonnel().getTelegramUsername())
                 .build();
     }
 

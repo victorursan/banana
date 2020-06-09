@@ -1,5 +1,6 @@
 package com.victor.banana.services.impl;
 
+import com.victor.banana.models.events.TelegramLoginData;
 import com.victor.banana.models.events.UserProfile;
 import com.victor.banana.models.events.locations.Location;
 import com.victor.banana.models.events.personnel.Personnel;
@@ -70,9 +71,28 @@ public class APIServiceImpl implements APIService {
                     .addHandlerByOperationId("getPersonnelByType", this::getPersonnelByType);
 
             routerFactory.addHandlerByOperationId("getProfile", this::getProfile)
+                    .addHandlerByOperationId("addTelegramToUser", this::addTelegramToUser)
                     .addHandlerByOperationId("deleteUserProfile", this::deleteUserProfile);
 
             return routerFactory.getRouter();
+        });
+    }
+
+    private void addTelegramToUser(RoutingContext rc) {
+        isUserAuthorized(rc, Authority.COMMUNITY, personnel -> {
+            final var telegramReq = rc.getBodyAsJson().mapTo(TelegramLoginDataReq.class);
+            final var telegramUsername = telegramReq.getUsername().startsWith("@") ? telegramReq.getUsername() : "@" + telegramReq.getUsername();
+            final var telegramLogin = TelegramLoginData.builder()
+                    .personnel(personnel)
+                    .chatId(telegramReq.getId())
+                    .username(telegramUsername)
+                    .firstName(telegramReq.getFirstName())
+                    .lastName(telegramReq.getLastName())
+                    .build();
+            Future.<UserProfile>future(f -> cartchufiService.addTelegramToUserProfile(telegramLogin, f))
+                    .map(userProfileSerializer())
+                    .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
+                    .onFailure(failureHandler(rc, 500));
         });
     }
 
@@ -180,7 +200,7 @@ public class APIServiceImpl implements APIService {
         isUserAuthorized(rc, isUser ? Authority.MEMBER : Authority.COMMUNITY, personnel ->
                 Future.<List<Ticket>>future(f ->
                         cartchufiService.getTickets(TicketFilter.builder().forUser(isUser ? Optional.of(personnel.getId()) : Optional.empty()).build(), f))
-                        .map(mapTs(ticketSerializer(!isUser), Comparator.comparing(TicketResp::getCreatedAt)))
+                        .map(mapTs(ticketSerializer(!isUser), Comparator.comparing(TicketResp::getCreatedAt).reversed()))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                         .onFailure(failureHandler(rc, 500)));
     }

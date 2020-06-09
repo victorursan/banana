@@ -14,7 +14,7 @@ services:
     ports:
       - 5432:5432
   keycloak:
-    image: banana-keycloak:v4
+    image: banana-keycloak:v5
     environment:
       DB_VENDOR: POSTGRES
       DB_ADDR: db
