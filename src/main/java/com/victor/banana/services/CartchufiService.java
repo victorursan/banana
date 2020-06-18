@@ -1,19 +1,16 @@
 package com.victor.banana.services;
 
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.messages.CreateChannelMessage;
+import com.victor.banana.models.events.messages.RecvPersonnelMessage;
+import com.victor.banana.models.events.messages.RecvUpdateMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
-import com.victor.banana.models.events.locations.CreateLocation;
-import com.victor.banana.models.events.roles.CreateRole;
-import com.victor.banana.models.events.locations.Location;
-import com.victor.banana.models.events.roles.Role;
 import com.victor.banana.models.events.stickies.CreateSticky;
+import com.victor.banana.models.events.stickies.ScanSticky;
 import com.victor.banana.models.events.stickies.Sticky;
-import com.victor.banana.models.events.messages.RecvPersonnelMessage;
-import com.victor.banana.models.events.messages.RecvUpdateMessage;
-import com.victor.banana.models.events.stickies.StickyLocation;
 import com.victor.banana.models.events.stickies.UpdateSticky;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
@@ -27,6 +24,7 @@ import io.vertx.core.Vertx;
 import java.util.List;
 
 import static com.victor.banana.utils.Constants.DeliveryOptionsConstants.LOCAL_DELIVERY;
+import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 
 @ProxyGen
 @VertxGen
@@ -40,19 +38,17 @@ public interface CartchufiService {
 
     void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
 
-    void createLocation(CreateLocation createLocation, Handler<AsyncResult<Location>> result);
+    void createCompany(CreateCompany createCompany, Handler<AsyncResult<Company>> result);
 
-    void createRole(CreateRole createRole, Handler<AsyncResult<Role>> result);
+    void createBuildingFloors(CreateBuildingFloors createBuilding, Handler<AsyncResult<BuildingFloors>> result);
 
-    void deleteRole(String roleId, Handler<AsyncResult<Boolean>> result);
+    void getScanSticky(String stickyLocation, Handler<AsyncResult<ScanSticky>> result);
 
-    void getStickyLocation(String stickyLocation, Handler<AsyncResult<StickyLocation>> result);
+    void getBuildingsForCompany(String companyId, Handler<AsyncResult<BuildingLocations>> result);
 
-    void getLocations(Handler<AsyncResult<List<Location>>> result);
+    void getFloorLocations(String buildingId, Handler<AsyncResult<FloorLocations>> result);
 
-    void deleteLocation(String locationId, Handler<AsyncResult<Boolean>> result);
-
-    void getRoles(Handler<AsyncResult<List<Role>>> result);
+//    void deleteLocation(String locationId, Handler<AsyncResult<Boolean>> result);
 
     void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result);
 
@@ -72,7 +68,7 @@ public interface CartchufiService {
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 
-    void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<Boolean>> result);
+    void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<TelegramChannel>> result);
 
     void receivedMessageUpdate(RecvUpdateMessage updateMessage);
 
@@ -88,7 +84,7 @@ public interface CartchufiService {
 
     void addTelegramToUserProfile(TelegramLoginData telegramLoginData, Handler<AsyncResult<UserProfile>> result);
 
-    static CartchufiService createProxy(Vertx vertx, String address) {
-        return new CartchufiServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);
+    static CartchufiService createProxy(Vertx vertx) {
+        return new CartchufiServiceVertxEBProxy(vertx, CARTCHUFI_ENGINE, LOCAL_DELIVERY);
     }
 }

@@ -3,8 +3,7 @@ package com.victor.banana.models.events;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -17,7 +16,9 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class ActionSelected {
+    @NotNull
     private UUID actionId;
+    @NotNull
     private UUID locationId;
 
     public ActionSelected(JsonObject jsonObject) {

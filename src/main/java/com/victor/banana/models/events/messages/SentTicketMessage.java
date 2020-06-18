@@ -2,11 +2,8 @@ package com.victor.banana.models.events.messages;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -20,8 +17,11 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class SentTicketMessage implements SentMessage {
+    @NotNull
     private Long messageId;
+    @NotNull
     private Long chatId;
+    @NotNull
     private UUID ticketId;
 
     public SentTicketMessage(JsonObject jsonObject) {

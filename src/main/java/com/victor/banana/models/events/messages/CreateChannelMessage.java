@@ -3,8 +3,7 @@ package com.victor.banana.models.events.messages;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -17,10 +16,14 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class CreateChannelMessage {
-    private String firstName;
-    private String lastName;
-    private String username;
+    @NotNull
     private Long chatId;
+    @Builder.Default
+    private Optional<String> firstName = Optional.empty();
+    @Builder.Default
+    private Optional<String> lastName = Optional.empty();
+    @NotNull
+    private String username;
 
     public CreateChannelMessage(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
@@ -28,13 +31,5 @@ public class CreateChannelMessage {
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
-    }
-
-    public Optional<String> getFirstName() {
-        return Optional.ofNullable(firstName);
-    }
-
-    public Optional<String> getLastName() {
-        return Optional.ofNullable(lastName);
     }
 }

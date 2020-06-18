@@ -1,11 +1,8 @@
 package com.victor.banana.models.responses;
 
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 @Builder
 @AllArgsConstructor
@@ -13,8 +10,9 @@ import java.util.UUID;
 @Getter
 @ToString
 @EqualsAndHashCode
-public class LocationResp {
+public class CompanyResp {
+    @NotNull
     private UUID id;
-    private UUID parentLocation;
-    private String message;
+    @NotNull
+    private String name;
 }

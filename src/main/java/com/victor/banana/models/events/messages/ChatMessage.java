@@ -2,11 +2,8 @@ package com.victor.banana.models.events.messages;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import org.jetbrains.annotations.NotNull;import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
@@ -17,8 +14,11 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class ChatMessage {
+    @NotNull
     private Long messageId;
+    @NotNull
     private Long chatId;
+    @NotNull
     private String message;
 
     public ChatMessage(JsonObject jsonObject) {

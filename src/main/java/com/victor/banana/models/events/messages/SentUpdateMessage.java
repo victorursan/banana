@@ -3,11 +3,8 @@ package com.victor.banana.models.events.messages;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -20,10 +17,14 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class SentUpdateMessage implements SentMessage {
+    @NotNull
     private Long chatId;
+    @NotNull
     private Long messageId;
+    @NotNull
     private String text;
-    private Optional<TicketState> state;
+    @Builder.Default
+    private Optional<TicketState> state = Optional.empty();
 
     public SentUpdateMessage(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);

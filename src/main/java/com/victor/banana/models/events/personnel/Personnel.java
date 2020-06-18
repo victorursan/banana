@@ -3,11 +3,8 @@ package com.victor.banana.models.events.personnel;
 import com.victor.banana.utils.Constants.PersonnelRole;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
@@ -21,10 +18,12 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class Personnel {
+    @NotNull
     private UUID id;
-    private UUID locationId;
-    private PersonnelRole role;
-
+    @Builder.Default
+    private Optional<PersonnelRole> role = Optional.empty();
+    @Builder.Default
+    private Optional<UUID> buildingId = Optional.empty();
     @Builder.Default
     private Optional<String> firstName = Optional.empty();
     @Builder.Default
@@ -33,6 +32,8 @@ public class Personnel {
     private Optional<String> email = Optional.empty();
     @Builder.Default
     private Optional<String> telegramUsername = Optional.empty();
+    @Builder.Default
+    private Optional<Long> chatId = Optional.empty();
 
     public Personnel(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
@@ -43,6 +44,6 @@ public class Personnel {
     }
 
     public void setRole(PersonnelRole role) {
-        this.role = role;
+        this.role = Optional.of(role);
     }
 }

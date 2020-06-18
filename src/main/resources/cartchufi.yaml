@@ -4,16 +4,17 @@ info:
   title: Swagger Cartchufi
 servers:
   - url: http://localhost:8081/api/
-#security:
-#  - oAuth2AuthCode:   # <--- Use the same name as specified in securitySchemes
-#      - realm:member
 paths:
-  /locations:
+  /locations/companies/{companyId}:
     get:
-#      security:
-#        - bearerAuth: ['community']
-      summary: Get all locations
-      operationId: getLocations
+      summary: Get all buildings for the company
+      operationId: getBuildingsForCompany
+      parameters:
+        - name: companyId
+          in: path
+          required: true
+          schema:
+            type: string
       tags:
         - locations
       responses:
@@ -22,18 +23,36 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Locations"
+                $ref: '#/components/schemas/BuildingLocations'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
+
+  /locations/buildings:
+    get:
+      summary: Get all locations for the user's building
+      operationId: getFloorLocations
+      tags:
+        - locations
+      responses:
+        '200':
+          description: A list of all the locations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FloorLocations'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
-#      security:
-#        - bearerAuth: ['admin']
-      summary: Add a new location
-      operationId: addLocation
+      summary: Add a new company
+      operationId: addBuildingFloors
       tags:
         - locations
       requestBody:
@@ -42,49 +61,50 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/AddLocation"
+              $ref: '#/components/schemas/AddBuildingFloors'
       responses:
         '201':
           description: The location that was added
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Location"
+                $ref: '#/components/schemas/BuildingFloors'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
-  /locations/{locationId}:
-    delete:
-#      security:
-#        - bearerAuth: ['admin']
-      summary: Delete a specific location
+  /locations/companies:
+    post:
+      summary: Add a new company
+      operationId: addCompany
       tags:
         - locations
-      parameters:
-        - name: locationId
-          in: path
-          required: true
-          schema:
-            type: string
-      operationId: deleteLocation
+      requestBody:
+        required: true
+        description: The company to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCompany'
       responses:
-        '204':
-          description: Successfully deactivated the location
+        '201':
+          description: The company that was added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /tickets/{ticketId}:
     get:
-#      security:
-#        - bearerAuth: ['member']
       summary: Get specific ticket
       parameters:
         - name: ticketId
@@ -101,16 +121,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Ticket"
+                $ref: '#/components/schemas/Ticket'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     put:
-#      security:
-#        - bearerAuth: ['community']
       summary: Update ticket
       parameters:
         - name: ticketId
@@ -134,18 +152,42 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Ticket"
+                $ref: '#/components/schemas/Ticket'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
+  /actions:
+    post:
+      summary: Actions selected
+      tags:
+        - tickets
+      operationId: actionSelected
+      requestBody:
+        required: true
+        description: The action selected
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActionSelected'
+      responses:
+        '200':
+          description: The newly created ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /tickets:
     get:
-#      security:
-#        - bearerAuth: ['community']
       summary: Get all tickets
       operationId: getTickets
       tags:
@@ -162,43 +204,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Tickets"
+                $ref: '#/components/schemas/Tickets'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-#    post:
-#      summary: Create a new ticket
-#      tags:
-#        - tickets
-#      operationId: addTicket
-#      requestBody:
-#        required: true
-#        description: The ticket to be added
-#        content:
-#          application/json:
-#            schema:
-#              $ref: '#/components/schemas/AddTicket'
-#      responses:
-#        '200':
-#          description: The new ticket
-#          content:
-#            application/json:
-#              schema:
-#                $ref: "#/components/schemas/Ticket"
-#        default:
-#          description: unexpected error
-#          content:
-#            application/json:
-#              schema:
-#                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /stickies/scan/{stickyLocationId}:
     get:
-#      security:
-#        - bearerAuth: ['member']
       summary: A sticky was scanned
       parameters:
         - name: stickyLocationId
@@ -215,13 +230,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScanSticky"
+                $ref: '#/components/schemas/ScanSticky'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /stickies:
     get:
@@ -235,16 +250,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Stickies"
+                $ref: '#/components/schemas/Stickies'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     post:
-#      security:
-#        - bearerAuth: ['community']
       summary: Add a new sticky
       tags:
         - stickies
@@ -262,13 +275,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Sticky"
+                $ref: '#/components/schemas/Sticky'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /stickies/{stickyId}:
     get:
@@ -288,16 +301,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Sticky"
+                $ref: '#/components/schemas/Sticky'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     put:
-#      security:
-#        - bearerAuth: ['community']
       summary: Update a sticky
       tags:
         - stickies
@@ -321,47 +332,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Sticky"
+                $ref: '#/components/schemas/Sticky'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-
-  /actions:
-    post:
-#      security:
-#        - bearerAuth: ['member']
-      summary: Actions selected
-      tags:
-        - actions
-      operationId: actionSelected
-      requestBody:
-        required: true
-        description: The action selected
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ActionSelected'
-      responses:
-        '200':
-          description: The newly created ticket
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Ticket"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /roles:
     get:
-#      security:
-#        - bearerAuth: ['community']
       summary: Get all roles
       tags:
         - roles
@@ -372,71 +352,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Roles"
+                $ref: '#/components/schemas/Roles'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-    post:
-#      security:
-#        - bearerAuth: ['admin']
-      summary: Add a new role
-      tags:
-        - roles
-      operationId: addRole
-      requestBody:
-        required: true
-        description: The role to be added
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AddRole'
-      responses:
-        '200':
-          description: The new role
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Role"
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-
-  /roles/{roleId}:
-    delete:
-#      security:
-#        - bearerAuth: ['admin']
-      summary: Delete a role
-      tags:
-        - roles
-      parameters:
-        - name: roleId
-          in: path
-          required: true
-          schema:
-            type: string
-      operationId: deleteRole
-      responses:
-        '204':
-          description: Successfully deactivated the Sticky
-        default:
-          description: unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
+                $ref: '#/components/schemas/Error'
 
   /personnel/{personnelId}:
     get:
-#      security:
-#        - bearerAuth: ['member']
       summary: Get personnel info
       tags:
         - personnel
@@ -453,16 +378,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Personnel"
+                $ref: '#/components/schemas/Personnel'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     put:
-#      security:
-#        - bearerAuth: ['admin']
       summary: Update a personnel's info
       tags:
         - personnel
@@ -486,18 +409,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Personnel"
+                $ref: '#/components/schemas/Personnel'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /personnel:
     get:
-#      security:
-#        - bearerAuth: ['community']
       summary: Get personnel info
       tags:
         - personnel
@@ -519,18 +440,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AllPersonnel"
+                $ref: '#/components/schemas/AllPersonnel'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /profile/telegram:
     post:
-      #      security:
-      #        - bearerAuth: ['admin']
       summary: Add telegram to user profile
       tags:
         - profile
@@ -548,13 +467,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: '#/components/schemas/UserProfile'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /profile:
     get:
@@ -568,13 +487,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: '#/components/schemas/UserProfile'
         default:
           description: unexpected error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
     delete:
       summary: Delete user
       tags:
@@ -588,24 +507,85 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
 
 components:
-#  securitySchemes:
-#    oAuth2AuthCode:
-#      type: oauth2
-#      flows:
-#        authorizationCode:
-#          authorizationUrl: http://localhost:8080/auth/realms/banana-cartchufi/protocol/openid-connect/auth
-#          tokenUrl: http://localhost:8080/auth/realms/banana-cartchufi/protocol/openid-connect/token
-#          scopes:
-#            realm:member: member
-#            realm:community: community
-#            realm:admin: admin
-#      openIdConnectUrl: http://localhost:8080/auth/realms/banana-cartchufi/.well-known/openid-configuration
-
   schemas:
+    BuildingLocations:
+      type: object
+      required:
+        - company
+        - buildings
+        - floors
+      properties:
+        company:
+          $ref: '#/components/schemas/Company'
+        buildings:
+          $ref: '#/components/schemas/Buildings'
+        floors:
+          $ref: '#/components/schemas/Floors'
+
+    FloorLocations:
+      type: object
+      required:
+        - building
+        - floors
+        - stickyLocations
+      properties:
+        building:
+          $ref: '#/components/schemas/Building'
+        floors:
+          $ref: '#/components/schemas/Floors'
+        stickyLocations:
+          $ref: '#/components/schemas/StickyLocations'
+
+    AddBuildingFloors:
+      type: object
+      required:
+        - building
+        - floors
+      properties:
+        building:
+          $ref: '#/components/schemas/AddBuilding'
+        floors:
+          $ref: '#/components/schemas/AddFloors'
+
+    BuildingFloors:
+      type: object
+      required:
+        - building
+        - floors
+      properties:
+        building:
+          $ref: '#/components/schemas/Building'
+        floors:
+          $ref: '#/components/schemas/Floors'
+
+    AddFloor:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+
+    AddFloors:
+      type: array
+      items:
+        $ref: '#/components/schemas/AddFloor'
+
+    AddBuilding:
+      type: object
+      required:
+        - companyId
+        - name
+      properties:
+        companyId:
+          type: string
+        name:
+          type: string
+
     TelegramLoginData:
       type: object
       required:
@@ -629,8 +609,6 @@ components:
         - firstName
         - lastName
         - email
-        - role
-        - location
       properties:
         id:
           type: string
@@ -643,42 +621,111 @@ components:
         role:
           $ref: '#/components/schemas/Role'
         location:
-          $ref: "#/components/schemas/Location"
+          $ref: '#/components/schemas/Building'
 
-    Location:
+    AddCompany:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+
+    Company:
       type: object
       required:
         - id
-        - parentLocation
-        - message
+        - name
       properties:
         id:
           type: string
-        parentLocation:
-          type: string
-        message:
+        name:
           type: string
 
-    Locations:
-      type: array
-      items:
-        $ref: "#/components/schemas/Location"
-
-    AddLocation:
+    Floor:
       type: object
       required:
-        - parentLocation
-        - location
+        - id
+        - buildingId
+        - name
+        - active
       properties:
-        parentLocation:
+        id:
           type: string
-        message:
+        buildingId:
           type: string
+        name:
+          type: string
+        active:
+          type: boolean
 
-    AddLocations:
+    Floors:
       type: array
       items:
-        $ref: "#/components/schemas/AddLocation"
+        $ref: '#/components/schemas/Floor'
+
+    Building:
+      type: object
+      required:
+        - id
+        - companyId
+        - name
+        - active
+      properties:
+        id:
+          type: string
+        companyId:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
+
+    Buildings:
+      type: array
+      items:
+        $ref: '#/components/schemas/Building'
+
+    StickyLocation:
+      type: object
+      required:
+        - id
+        - floorId
+        - stickyId
+        - name
+        - active
+      properties:
+        id:
+          type: string
+        floorId:
+          type: string
+        stickyId:
+          type: string
+        name:
+          type: string
+        active:
+          type: boolean
+
+    StickyLocations:
+      type: array
+      items:
+        $ref: '#/components/schemas/StickyLocation'
+
+    AddStickyLocation:
+      type: object
+      required:
+        - floorId
+        - name
+      properties:
+        floorId:
+          type: string
+        name:
+          type: string
+
+    AddStickyLocations:
+      type: array
+      items:
+        $ref: '#/components/schemas/AddStickyLocation'
 
     Ticket:
       type: object
@@ -697,26 +744,28 @@ components:
     Tickets:
       type: array
       items:
-        $ref: "#/components/schemas/Ticket"
+        $ref: '#/components/schemas/Ticket'
 
     Action:
       type: object
       required:
         - id
-        - roleId
+        - roles
         - message
       properties:
         id:
           type: string
-        roleId:
-          type: string
+        rolesId:
+          type: array
+          items:
+            type: string
         message:
           type: string
 
     Actions:
       type: array
       items:
-        $ref: "#/components/schemas/Action"
+        $ref: '#/components/schemas/Action'
 
     ScanSticky:
       type: object
@@ -733,12 +782,12 @@ components:
         message:
           type: string
         actions:
-          $ref: "#/components/schemas/Actions"
+          $ref: '#/components/schemas/Actions'
 
     Stickies:
       type: array
       items:
-        $ref: "#/components/schemas/Sticky"
+        $ref: '#/components/schemas/Sticky'
 
     Sticky:
       type: object
@@ -753,25 +802,27 @@ components:
         message:
           type: string
         actions:
-          $ref: "#/components/schemas/Actions"
+          $ref: '#/components/schemas/Actions'
         locations:
-          $ref: "#/components/schemas/Locations"
+          $ref: '#/components/schemas/StickyLocations'
 
     AddAction:
       type: object
       required:
         - action
-        - roleId
+        - roles
       properties:
         action:
           type: string
-        roleId:
-          type: string
+        roles:
+          type: array
+          items:
+            type: string
 
     AddActions:
       type: array
       items:
-        $ref: "#/components/schemas/AddAction"
+        $ref: '#/components/schemas/AddAction'
 
     AddSticky:
       type: object
@@ -783,21 +834,21 @@ components:
         message:
           type: string
         actions:
-          $ref: "#/components/schemas/AddActions"
+          $ref: '#/components/schemas/AddActions'
         locations:
-          $ref: "#/components/schemas/AddLocations"
+          $ref: '#/components/schemas/AddStickyLocations'
 
     UpdateActions:
       type: object
       properties:
         add:
-          $ref: "#/components/schemas/AddActions"
+          $ref: '#/components/schemas/AddActions'
         activate:
           type: array
           items:
             type: string
         update:
-          $ref: "#/components/schemas/ActionUpdates"
+          $ref: '#/components/schemas/ActionUpdates'
         remove:
           type: array
           items:
@@ -806,7 +857,7 @@ components:
     ActionUpdates:
       type: array
       items:
-        $ref: "#/components/schemas/ActionUpdate"
+        $ref: '#/components/schemas/ActionUpdate'
 
     ActionUpdate:
       type: object
@@ -817,38 +868,38 @@ components:
           type: string
         action:
           type: string
-        roleId:
+        roles:
           type: string
 
-    LocationUpdates:
+    StickyLocationUpdates:
       type: array
       items:
-        $ref: "#/components/schemas/LocationUpdate"
+        $ref: '#/components/schemas/StickyLocationUpdate'
 
-    LocationUpdate:
+    StickyLocationUpdate:
       type: object
       required:
         - id
       properties:
         id:
           type: string
-        parentLocation:
+        floorId:
           type: string
-        location:
+        name:
           type: string
 
 
-    UpdateLocations:
+    UpdateStickyLocations:
       type: object
       properties:
         add:
-          $ref: "#/components/schemas/AddLocations"
+          $ref: '#/components/schemas/AddStickyLocations'
         activate:
           type: array
           items:
             type: string
         update:
-          $ref: "#/components/schemas/LocationUpdates"
+          $ref: '#/components/schemas/StickyLocationUpdate'
         remove:
           type: array
           items:
@@ -862,9 +913,9 @@ components:
         active:
           type: boolean
         actions:
-          $ref: "#/components/schemas/UpdateActions"
+          $ref: '#/components/schemas/UpdateActions'
         locations:
-          $ref: '#/components/schemas/UpdateLocations'
+          $ref: '#/components/schemas/UpdateStickyLocations'
 
     ActionSelected:
       type: object
@@ -875,14 +926,6 @@ components:
         actionId:
           type: string
         locationId:
-          type: string
-
-    AddRole:
-      type: object
-      required:
-        - type
-      properties:
-        type:
           type: string
 
     Role:
@@ -917,17 +960,6 @@ components:
         newRole:
           type: string
 
-#    AddTicket:
-#      type: object
-#      required:
-#        - actionId
-#        - locationId
-#      properties:
-#        actionId:
-#          type: string
-#        locationId:
-#          type: string
-
     AllPersonnel:
       type: array
       items:
@@ -937,8 +969,6 @@ components:
       type: object
       required:
         - id
-        - locationId
-        - roleId
       properties:
         id:
           type: string
@@ -946,7 +976,7 @@ components:
           type: string
         lastName:
           type: string
-        locationId:
+        buildingId:
           type: string
         roleId:
           type: string

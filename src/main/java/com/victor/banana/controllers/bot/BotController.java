@@ -1,5 +1,6 @@
 package com.victor.banana.controllers.bot;
 
+import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.messages.*;
 import com.victor.banana.models.events.tickets.TicketState;
 import com.victor.banana.services.CartchufiService;
@@ -7,6 +8,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.jetbrains.annotations.NotNull;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
@@ -19,6 +21,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -47,16 +50,12 @@ public final class BotController extends TelegramLongPollingBot {
 
             final var createChannelMessage = CreateChannelMessage.builder()
                     .chatId(chat.getId())
-                    .firstName(chat.getFirstName())
-                    .lastName(chat.getLastName())
+                    .firstName(Optional.ofNullable(chat.getFirstName()))
+                    .lastName(Optional.ofNullable(chat.getLastName()))
                     .username(String.format("@%s", chat.getUserName()))
                     .build();
-            Future.<Boolean>future(f -> cartchufiService.createChannel(createChannelMessage, f))
-                    .onSuccess(s -> {
-                        if (!s) {
-                            log.error("Creation of telegram channel failed");
-                        }
-                    })
+            Future.<TelegramChannel>future(f -> cartchufiService.createChannel(createChannelMessage, f))
+                    .onSuccess(telegramChannel -> log.debug("Created telegram channel"))
                     .onFailure(t -> log.error("Something went wrong creating telegram channel", t));
         });
         commandsHandler.registerCommandWith("my_tickets", "Here are all your acquired tickets. " +
@@ -77,7 +76,8 @@ public final class BotController extends TelegramLongPollingBot {
 
 
     @Override
-    public final void onUpdateReceived(Update update) {
+    @NotNull
+    public void onUpdateReceived(Update update) {
         if (update.hasMessage()) {
             final var message = update.getMessage();
             if (message.isCommand()) {
@@ -89,6 +89,56 @@ public final class BotController extends TelegramLongPollingBot {
             }
         }
         processNonCommandUpdate(update);
+    }
+
+    @NotNull
+    public Future<List<SentTicketMessage>> sendMessages(List<SendTicketMessage> sendTicketMessages) {
+        return executeMessages(sendTicketMessages,
+                stm -> new SendMessage()
+                        .setChatId(stm.getChatId())
+                        .enableHtml(true)
+                        .setText(stm.getTicketMessage())
+                        .setReplyMarkup(getKeyboardFor(stm.getTicketState())),
+                (stm, recvM) -> SentTicketMessage.builder()
+                        .chatId(recvM.getChatId())
+                        .messageId(recvM.getMessageId().longValue())
+                        .ticketId(stm.getTicketId())
+                        .build())
+                .onComplete(e -> log.info(e.toString()));
+    }
+
+    @NotNull
+    public Future<List<SentUpdateMessage>> updateMessages(List<SendUpdateMessage> sendUpdateMessages) {
+        return executeMessages(sendUpdateMessages,
+                sum -> new EditMessageText()
+                        .setChatId(sum.getChatId())
+                        .enableHtml(true)
+                        .setText(sum.getText())
+                        .setMessageId(sum.getMessageId().intValue())
+                        .setReplyMarkup(getKeyboardFor(sum.getState())),
+                (sum, recvM) ->
+                        SentUpdateMessage.builder()
+                                .chatId(sum.getChatId())
+                                .messageId(sum.getMessageId())
+                                .state(sum.getState())
+                                .text(sum.getText())
+                                .build() //todo
+        );
+    }
+
+    @NotNull
+    public Future<List<SentDeleteMessage>> deleteMessages(List<SendDeleteMessage> sendDeleteMessages) {
+        return executeMessages(sendDeleteMessages,
+                sdm -> new DeleteMessage()
+                        .setChatId(sdm.getChatId())
+                        .setMessageId(sdm.getMessageId().intValue()),
+                (sdm, wasDeleted) ->
+                        SentDeleteMessage.builder()
+                                .chatId(sdm.getChatId())
+                                .messageId(sdm.getMessageId())
+                                .wasDeleted(wasDeleted)
+                                .build()
+        );
     }
 
     private void processInvalidCommandUpdate(Update update) {
@@ -103,8 +153,8 @@ public final class BotController extends TelegramLongPollingBot {
             final var personnelMessage = RecvPersonnelMessage.builder()
                     .channel(CreateChannelMessage.builder()
                             .chatId(updateMessage.getChatId())
-                            .firstName(user.getFirstName())
-                            .lastName(user.getLastName())
+                            .firstName(Optional.ofNullable(user.getFirstName()))
+                            .lastName(Optional.ofNullable(user.getLastName()))
                             .username(String.format("@%s", user.getUserName()))
                             .build())
                     .messageId(updateMessage.getMessageId().longValue())
@@ -131,53 +181,7 @@ public final class BotController extends TelegramLongPollingBot {
         }
     }
 
-    public final Future<List<SentTicketMessage>> sendMessages(List<SendTicketMessage> sendTicketMessages) {
-        return executeMessages(sendTicketMessages,
-                stm -> new SendMessage()
-                        .setChatId(stm.getChatId())
-                        .enableHtml(true)
-                        .setText(stm.getTicketMessage())
-                        .setReplyMarkup(getKeyboardFor(stm.getTicketState())),
-                (stm, recvM) -> SentTicketMessage.builder()
-                        .chatId(recvM.getChatId())
-                        .messageId(recvM.getMessageId().longValue())
-                        .ticketId(stm.getTicketId())
-                        .build())
-                .onComplete(e -> log.info(e.toString()));
-    }
-
-    public final Future<List<SentUpdateMessage>> updateMessages(List<SendUpdateMessage> sendUpdateMessages) {
-        return executeMessages(sendUpdateMessages,
-                sum -> new EditMessageText()
-                        .setChatId(sum.getChatId())
-                        .enableHtml(true)
-                        .setText(sum.getText())
-                        .setMessageId(sum.getMessageId().intValue())
-                        .setReplyMarkup(getKeyboardFor(sum.getState())),
-                (sum, recvM) ->
-                        SentUpdateMessage.builder()
-                                .chatId(sum.getChatId())
-                                .messageId(sum.getMessageId())
-                                .state(sum.getState())
-                                .text(sum.getText())
-                                .build() //todo
-        );
-    }
-
-    public final Future<List<SentDeleteMessage>> deleteMessages(List<SendDeleteMessage> sendDeleteMessages) {
-        return executeMessages(sendDeleteMessages,
-                sdm -> new DeleteMessage()
-                        .setChatId(sdm.getChatId())
-                        .setMessageId(sdm.getMessageId().intValue()),
-                (sdm, wasDeleted) ->
-                        SentDeleteMessage.builder()
-                                .chatId(sdm.getChatId())
-                                .messageId(sdm.getMessageId())
-                                .wasDeleted(wasDeleted)
-                                .build()
-        );
-    }
-
+    @NotNull
     private <T extends Serializable, M extends BotApiMethod<T>, E, R> Future<List<R>> executeMessages(List<E> elements,
                                                                                                       Function<E, M> mapper,
                                                                                                       BiFunction<E, T, R> resultMapper) {
@@ -195,6 +199,7 @@ public final class BotController extends TelegramLongPollingBot {
         return mergeFutures(recvMessages);
     }
 
+    @NotNull
     private <T extends Serializable, M extends BotApiMethod<T>> Future<List<T>> executeMessages(List<M> elements) {
         return executeMessages(elements, identity(), (a, b) -> b);
     }

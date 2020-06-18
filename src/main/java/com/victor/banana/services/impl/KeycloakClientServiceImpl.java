@@ -48,7 +48,7 @@ public class KeycloakClientServiceImpl implements KeycloakClientService, AutoClo
             try {
                 final var user = usersResource.get(roleUpdate.getPersonnelId().toString());
                 final var userRep = new UserRepresentation();
-                userRep.setRealmRoles(roleUpdate.getPersonnelRole().getKeycloakId().map(List::of).orElse(List.of()));
+                userRep.setRealmRoles(List.of(roleUpdate.getPersonnelRole().getKeycloakId()));
                 user.update(userRep);
                 t.complete();
             } catch (Exception e) {

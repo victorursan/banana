@@ -1,11 +1,7 @@
 package com.victor.banana.models.responses;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-import lombok.Singular;
-
-import java.util.List;
+import org.jetbrains.annotations.NotNull;import java.util.List;
 import java.util.UUID;
 
 @Builder
@@ -15,10 +11,12 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class StickyResp {
+    @NotNull
     private UUID id;
+    @NotNull
     private String message;
-    @Singular
-    private List<ActionStickyResp> actions;
-    @Singular
-    private List<LocationResp> locations;
+    @Builder.Default
+    private List<ActionStickyResp> actions = List.of();
+    @Builder.Default
+    private List<StickyLocationResp> locations = List.of();
 }

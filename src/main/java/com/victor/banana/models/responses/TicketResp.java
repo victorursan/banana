@@ -1,10 +1,7 @@
 package com.victor.banana.models.responses;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.time.OffsetDateTime;
+import org.jetbrains.annotations.NotNull;import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,9 +12,13 @@ import java.util.UUID;
 @EqualsAndHashCode
 @AllArgsConstructor
 public class TicketResp {
+    @NotNull
     private UUID ticketId;
+    @NotNull
     private String message;
+    @NotNull
     private String state;
+    @NotNull
     private OffsetDateTime createdAt;
     @Builder.Default
     private Optional<OffsetDateTime> acquiredAt = Optional.empty();

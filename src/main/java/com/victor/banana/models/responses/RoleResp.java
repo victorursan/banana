@@ -1,10 +1,7 @@
 package com.victor.banana.models.responses;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 @Builder
 @AllArgsConstructor
@@ -13,6 +10,8 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class RoleResp {
+    @NotNull
     private UUID id;
+    @NotNull
     private String role;
 }

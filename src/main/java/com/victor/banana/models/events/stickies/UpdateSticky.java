@@ -3,9 +3,7 @@ package com.victor.banana.models.events.stickies;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -18,10 +16,14 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @Builder
 @DataObject
 public class UpdateSticky {
-    private String message;
-    private Boolean active;
-    private UpdateStickyCreateAction actions;
-    private UpdateStickyCreateLocation locations;
+    @Builder.Default
+    private Optional<String> message = Optional.empty();
+    @Builder.Default
+    private Optional<Boolean> active = Optional.empty();
+    @Builder.Default
+    private Optional<UpdateStickyCreateAction> actions = Optional.empty();
+    @Builder.Default
+    private Optional<UpdateStickyCreateLocation> locations = Optional.empty();
 
     public UpdateSticky(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
@@ -29,21 +31,5 @@ public class UpdateSticky {
 
     public JsonObject toJson() {
         return serializeToJsonObject(this);
-    }
-
-    public Optional<String> getMessage() {
-        return Optional.ofNullable(message);
-    }
-
-    public Optional<Boolean> getActive() {
-        return Optional.ofNullable(active);
-    }
-
-    public Optional<UpdateStickyCreateAction> getActions() {
-        return Optional.ofNullable(actions);
-    }
-
-    public Optional<UpdateStickyCreateLocation> getLocations() {
-        return Optional.ofNullable(locations);
     }
 }

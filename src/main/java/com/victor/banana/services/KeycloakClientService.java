@@ -9,13 +9,14 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 
 import static com.victor.banana.utils.Constants.DeliveryOptionsConstants.LOCAL_DELIVERY;
+import static com.victor.banana.utils.Constants.EventbusAddress.KEYCLOAK_CLIENT;
 
 @ProxyGen
 @VertxGen
 public interface KeycloakClientService {
 
-    static KeycloakClientService createProxy(Vertx vertx, String address) {
-        return new KeycloakClientServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);
+    static KeycloakClientService createProxy(Vertx vertx) {
+        return new KeycloakClientServiceVertxEBProxy(vertx, KEYCLOAK_CLIENT, LOCAL_DELIVERY);
     }
 
     void deleteUser(KeyUserDelete userDelete, Handler<AsyncResult<Void>> result);

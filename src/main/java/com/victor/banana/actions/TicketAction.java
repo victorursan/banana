@@ -1,11 +1,11 @@
 package com.victor.banana.actions;
 
 import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.stickies.StickyAction;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketState;
 
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,6 +25,16 @@ public interface TicketAction {
                 default -> empty();
             };
         };
+    }
+
+    static Ticket createTicket(StickyAction stickyAction) {
+        return Ticket.builder()
+                .id(UUID.randomUUID())
+                .actionId(stickyAction.getActionId())
+                .locationId(stickyAction.getLocationId())
+                .message(String.format("%s | %s | %s", stickyAction.getFloor(), stickyAction.getLocation(), stickyAction.getActionMessage()))
+                .state(PENDING)
+                .build();
     }
 
     static TicketAction computeFor(Ticket oldTicket, TicketState newState, String username, UUID personnelId) {

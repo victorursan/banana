@@ -9,27 +9,23 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import lombok.SneakyThrows;
 import org.telegram.telegrambots.ApiContextInitializer;
 import org.telegram.telegrambots.meta.TelegramBotsApi;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.List;
 
 public class TelegramBotServiceImpl implements TelegramBotService {
     private static final Logger log = LoggerFactory.getLogger(TelegramBotServiceImpl.class);
-    private BotController botController;
+    private final BotController botController;
 
+    @SneakyThrows
     public TelegramBotServiceImpl(TelegramBotConfig config, CartchufiService cartchufiService) {
         ApiContextInitializer.init();
 
         final var botsApi = new TelegramBotsApi();
-
-        try {
-            botController = new BotController(config.getBotUsername(), config.getBotToken(), cartchufiService);
-            botsApi.registerBot(botController);
-        } catch (TelegramApiException e) {
-            log.error("Something went wrong", e);
-        }
+        botController = new BotController(config.getBotUsername(), config.getBotToken(), cartchufiService);
+        botsApi.registerBot(botController);
     }
 
     @Override

@@ -3,8 +3,7 @@ package com.victor.banana.models.events.tickets;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;

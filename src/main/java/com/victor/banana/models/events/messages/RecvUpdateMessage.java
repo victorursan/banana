@@ -3,11 +3,8 @@ package com.victor.banana.models.events.messages;
 import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
-
-import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import org.jetbrains.annotations.NotNull;import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
@@ -18,8 +15,11 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @DataObject
 public class RecvUpdateMessage {
+    @NotNull
     private Long chatId;
+    @NotNull
     private Long messageId;
+    @NotNull
     private TicketState state;
 
     public RecvUpdateMessage(JsonObject jsonObject) {

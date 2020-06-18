@@ -1,11 +1,10 @@
 package com.victor.banana.models.events;
 
-import com.victor.banana.utils.Constants;
+import com.victor.banana.utils.Constants.PersonnelRole;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -18,8 +17,10 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class KeyUserRoleUpdate {
+    @NotNull
     private UUID personnelId;
-    private Constants.PersonnelRole personnelRole;
+    @NotNull
+    private PersonnelRole personnelRole;
 
     public KeyUserRoleUpdate(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);

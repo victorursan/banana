@@ -28,6 +28,8 @@ public final class SecurityUtils {
     public enum Authority {
         MEMBER("realm:member"),
         COMMUNITY("realm:community"),
+        CLEANER("realm:cleaner"),
+        MAINTENANCE("realm:maintenance"),
         ADMIN("realm:admin");
 
         private final String value;
@@ -40,6 +42,8 @@ public final class SecurityUtils {
             return switch (this) {
                 case MEMBER -> PersonnelRole.MEMBER;
                 case COMMUNITY -> PersonnelRole.COMMUNITY;
+                case CLEANER -> PersonnelRole.CLEANER;
+                case MAINTENANCE -> PersonnelRole.MAINTENANCE;
                 case ADMIN -> PersonnelRole.ADMIN;
             };
         }

@@ -1,11 +1,10 @@
 package com.victor.banana.models.events.stickies;
 
-import com.victor.banana.models.events.locations.Location;
+import com.victor.banana.models.events.locations.StickyLocation;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.List;
+import org.jetbrains.annotations.NotNull;import java.util.List;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
@@ -20,9 +19,9 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @DataObject
 public class UpdateStickyLocation {
     @Builder.Default
-    private List<Location> add = List.of();
+    private List<StickyLocation> add = List.of();
     @Builder.Default
-    private List<Location> update = List.of();
+    private List<StickyLocation> update = List.of();
     @Builder.Default
     private List<UUID> activate = List.of();
     @Builder.Default

@@ -1,8 +1,7 @@
 package com.victor.banana.models.responses;
 
 import lombok.*;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;import java.util.Optional;
 import java.util.UUID;
 
 @Builder
@@ -12,11 +11,18 @@ import java.util.UUID;
 @ToString
 @EqualsAndHashCode
 public class PersonnelResp {
+    @NotNull
     private UUID id;
-    private Optional<String> firstName;
-    private Optional<String> lastName;
-    private Optional<String> email;
-    private Optional<String> username;
-    private UUID locationId;
-    private UUID roleId;
+    @Builder.Default
+    private Optional<String> firstName = Optional.empty();
+    @Builder.Default
+    private Optional<String> lastName = Optional.empty();
+    @Builder.Default
+    private Optional<String> email = Optional.empty();
+    @Builder.Default
+    private Optional<String> username = Optional.empty();
+    @Builder.Default
+    private Optional<UUID> buildingId = Optional.empty();
+    @Builder.Default
+    private Optional<UUID> roleId = Optional.empty();
 }

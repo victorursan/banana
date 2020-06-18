@@ -1,8 +1,11 @@
 package com.victor.banana.models.requests;
 
-import lombok.*;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
+import java.util.List;
 import java.util.UUID;
 
 @NoArgsConstructor
@@ -11,5 +14,5 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class ActionStickyReq {
     private String action;
-    private UUID roleId;
+    private List<UUID> roles;
 }

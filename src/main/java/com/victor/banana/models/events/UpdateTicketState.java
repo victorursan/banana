@@ -4,6 +4,7 @@ import com.victor.banana.models.events.tickets.TicketState;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
@@ -18,7 +19,9 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @Getter
 @DataObject
 public class UpdateTicketState {
+    @NotNull
     private UUID personnelId;
+    @NotNull
     private TicketState newTicketState;
 
     public UpdateTicketState(JsonObject jsonObject) {

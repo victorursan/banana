@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'application'
     id 'nu.studer.jooq' version '4.2'
+    id 'io.freefair.lombok' version '5.1.0'
 }
 
 group 'com.victor'
@@ -34,7 +35,7 @@ compileJava {
 def mainVerticleName = 'com.victor.banana.verticles.SupervisorVerticle'
 
 run {
-    args = ['run', mainVerticleName]
+    args = ['run', '-options "{\"preferNativeTransport\": true}" ', mainVerticleName]
 }
 
 ext {
@@ -42,7 +43,7 @@ ext {
     telegrambotsVersion = '4.9'
     slf4jVersion = '1.7.30'
     jooqVersion = '3.13.2'
-    lombokVersion = '1.18.12'
+//    lombokVersion = '1.18.12'
     postgresqlVersion = '42.2.13'
     vertxJooqVersion = '5.1.1'
     jacksonVersion = '2.11.0'
@@ -50,12 +51,17 @@ ext {
     keycloakVersion = '10.0.2'
     logbackVersion = '1.2.3'
     logstashVersion = '6.3'
+    nettyVersion = '4.1.50.Final'
+    ideaAnnotationsVersion = '19.0.0'
 }
 
 dependencies {
-    //lombok
-    compileOnly group: 'org.projectlombok', name: 'lombok', version: lombokVersion
-    annotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
+    //
+    implementation group: 'org.jetbrains', name: 'annotations', version: ideaAnnotationsVersion
+    annotationProcessor group: 'org.jetbrains', name: 'annotations', version: ideaAnnotationsVersion
+//    //lombok
+//    compileOnly group: 'org.projectlombok', name: 'lombok', version: lombokVersion
+//    annotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
 
     //vertx
     implementation group: 'io.vertx', name: 'vertx-core', version: vertxVersion
@@ -94,14 +100,17 @@ dependencies {
     implementation group: 'net.logstash.logback', name: 'logstash-logback-encoder', version: logstashVersion
     implementation group: 'ch.qos.logback', name: 'logback-classic', version: logbackVersion
 
+    // netty
+    implementation group: 'io.netty', name: 'netty-transport-native-epoll', version: nettyVersion, classifier: 'linux-x86_64'
+
     //keycloak
     implementation group: 'org.keycloak', name: 'keycloak-admin-client', version: keycloakVersion
 
 
     //test
     testImplementation group: 'io.vertx', name: 'vertx-junit5', version: vertxVersion
-    testCompileOnly group: 'org.projectlombok', name: 'lombok', version: lombokVersion
-    testAnnotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
+//    testCompileOnly group: 'org.projectlombok', name: 'lombok', version: lombokVersion
+//    testAnnotationProcessor group: 'org.projectlombok', name: 'lombok', version: lombokVersion
 }
 
 tasks.withType(JavaCompile) {
@@ -129,14 +138,18 @@ jooq {
                 inputSchema = 'public'
                 includes = '.*'
                 excludes = 'flyway_schema_history'
+                includeRoutines = false
+                includePackages = false
+                includeUDTs = false
+                includeSequences = false
             }
             generate {
                 deprecated = false
-                records = true
+                records = false
                 interfaces = false
-                fluentSetters = true
+                fluentSetters = false
                 pojos = false
-                daos = true
+                daos = false
             }
 
             target {

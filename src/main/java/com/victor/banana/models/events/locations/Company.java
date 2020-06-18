@@ -1,11 +1,9 @@
-package com.victor.banana.models.events.roles;
-
+package com.victor.banana.models.events.locations;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -17,10 +15,15 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class CreateRole {
-    private String type;
+public class Company {
+    @NotNull
+    private UUID id;
+    @NotNull
+    private String name;
+    @NotNull
+    private Boolean active;
 
-    public CreateRole(JsonObject jsonObject) {
+    public Company(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

@@ -5,7 +5,8 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 import com.victor.banana.utils.SecurityUtils;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.UUID;
 

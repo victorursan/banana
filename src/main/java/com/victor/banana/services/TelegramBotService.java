@@ -11,13 +11,14 @@ import io.vertx.core.Vertx;
 import java.util.List;
 
 import static com.victor.banana.utils.Constants.DeliveryOptionsConstants.LOCAL_DELIVERY;
+import static com.victor.banana.utils.Constants.EventbusAddress.TELEGRAM_BOT;
 
 @ProxyGen
 @VertxGen
 public interface TelegramBotService {
 
-    static TelegramBotService createProxy(Vertx vertx, String address) {
-        return new TelegramBotServiceVertxEBProxy(vertx, address, LOCAL_DELIVERY);
+    static TelegramBotService createProxy(Vertx vertx) {
+        return new TelegramBotServiceVertxEBProxy(vertx, TELEGRAM_BOT, LOCAL_DELIVERY);
     }
 
     void sendMessages(List<SendTicketMessage> messages, Handler<AsyncResult<List<SentTicketMessage>>> resultHandler);

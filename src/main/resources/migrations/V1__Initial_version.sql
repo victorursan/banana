@@ -1,16 +1,64 @@
 
-CREATE TABLE location (
-    location_id UUID NOT NULL PRIMARY KEY,
-    parent_location UUID NOT NULL REFERENCES location(location_id),
-    message TEXT NOT NULL,
+CREATE TABLE sticky (
+    sticky_id UUID NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
 
-INSERT INTO location(location_id, parent_location, message, active)
-VALUES ('929abc9f-f34f-4a44-9928-863d9dfbe705', '929abc9f-f34f-4a44-9928-863d9dfbe705', 'World', true),
-('95c12221-2314-4d1f-bf25-bd30d969c49f', '95c12221-2314-4d1f-bf25-bd30d969c49f', 'NO LOCATION', true);
+CREATE TABLE company (
+    company_id UUID NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email_domain TEXT,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE building (
+    building_id UUID NOT NULL PRIMARY KEY,
+    company_id UUID NOT NULL REFERENCES company(company_id),
+    name TEXT NOT NULL,
+    timezone TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE floor (
+    floor_id UUID NOT NULL PRIMARY KEY,
+    building_id UUID NOT NULL REFERENCES building(building_id),
+    name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+--
+--CREATE TABLE location (
+--    location_id UUID NOT NULL PRIMARY KEY,
+--    floor_id UUID NOT NULL REFERENCES floor(floor_id),
+--    name TEXT NOT NULL,
+--    active BOOLEAN NOT NULL DEFAULT true,
+--    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+--    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+--);
+
+--
+--create table location_desk partition of location for values in ('DESK');
+--create table location_hub partition of location for values in ('HUB');
+--create table location_conference_room partition of location for values in ('CONFERENCE ROOM');
+--create table location_sticky partition of location for values in ('STICKY');
+
+CREATE TABLE sticky_location (
+    location_id UUID NOT NULL PRIMARY KEY,
+    floor_id UUID NOT NULL REFERENCES floor(floor_id),
+    sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
+    name TEXT NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
 
 CREATE TABLE role (
     role_id UUID NOT NULL PRIMARY KEY,
@@ -25,39 +73,18 @@ VALUES ('53e07fd5-8deb-4ab6-aedb-cbcdcf28eec1', 'ADMIN', true),
 ('90642ef3-cd01-4fe5-a789-af915ddeaebc', 'COMMUNITY', true),
 ('56841b70-d343-445f-b4a7-c0b10ea4e0f6', 'CLEANER', true),
 ('2a53b2dc-11c3-4de6-a382-b6a9a1e3173e', 'MAINTENANCE', true),
-('8981b593-6d7a-45db-bbbe-cbcdd23cc693', 'MEMBER', true),
-('2fdeaa40-1e25-4b08-b960-5add7c18d59f', 'NO ROLE', true);
+('8981b593-6d7a-45db-bbbe-cbcdd23cc693', 'MEMBER', true);
 
 CREATE TABLE personnel (
     personnel_id UUID NOT NULL PRIMARY KEY,
     first_name TEXT,
     last_name TEXT,
     email TEXT,
-    location_id UUID NOT NULL DEFAULT '95c12221-2314-4d1f-bf25-bd30d969c49f' REFERENCES location(location_id),
-    role_id UUID NOT NULL DEFAULT '2fdeaa40-1e25-4b08-b960-5add7c18d59f' REFERENCES role(role_id),
+    building_id UUID REFERENCES building(building_id),
+    role_id UUID REFERENCES role(role_id),
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
-);
-
-INSERT INTO personnel (personnel_id)
-VALUES ('cf338d20-073a-4f28-ad68-a104d02eef9d');
-
-CREATE TABLE sticky (
-    sticky_id UUID NOT NULL PRIMARY KEY,
-    message TEXT NOT NULL,
-    active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
-);
-
-CREATE TABLE sticky_location (
-    location_id UUID NOT NULL UNIQUE REFERENCES location(location_id),
-    sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
-    message TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
-    PRIMARY KEY(location_id, sticky_id)
 );
 
 CREATE TABLE telegram_channel (
@@ -81,9 +108,16 @@ CREATE TABLE chat_message (
 CREATE TABLE sticky_action (
     action_id UUID NOT NULL PRIMARY KEY,
     sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
-    role_id UUID NOT NULL REFERENCES role(role_id),
-    message TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL,
     active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE sticky_action_role (
+    action_id UUID NOT NULL REFERENCES sticky_action(action_id),
+    role_id UUID NOT NULL REFERENCES role(role_id),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
@@ -96,7 +130,7 @@ CREATE TABLE ticket (
     location_id UUID NOT NULL REFERENCES sticky_location(location_id),
     message TEXT NOT NULL,
     state STATE NOT NULL,
-    owned_by UUID NOT NULL DEFAULT 'cf338d20-073a-4f28-ad68-a104d02eef9d' REFERENCES personnel(personnel_id),
+    owned_by UUID REFERENCES personnel(personnel_id),
     acquired_at TIMESTAMP WITH TIME ZONE,
     solved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
@@ -133,7 +167,22 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON location
+BEFORE UPDATE ON company
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON building
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON floor
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON sticky_action_role
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 

@@ -10,7 +10,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.serviceproxy.ServiceBinder;
 
-import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 import static com.victor.banana.utils.Constants.EventbusAddress.TELEGRAM_BOT;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.future;
@@ -25,7 +24,7 @@ public class TelegramBotVerticle extends AbstractVerticle {
 
     private Future<Void> deployServiceBinder(JsonObject config) {
         try {
-            final var cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
+            final var cartchufiService = CartchufiService.createProxy(vertx);
             final var telegramConf = config.mapTo(TelegramBotConfig.class);
             final var service = new TelegramBotServiceImpl(telegramConf, cartchufiService);
 

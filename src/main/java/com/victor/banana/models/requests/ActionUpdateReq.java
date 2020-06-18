@@ -4,7 +4,9 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,5 +17,5 @@ import java.util.UUID;
 public class ActionUpdateReq {
     private UUID id;
     private Optional<String> action = Optional.empty();
-    private Optional<UUID> roleId = Optional.empty();
+    private List<UUID> roles = List.of();
 }

@@ -1,11 +1,9 @@
 package com.victor.banana.models.events.locations;
 
-
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -17,11 +15,19 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class CreateLocation {
-    private String location;
-    private UUID parentLocation;
+public class StickyLocation {
+    @NotNull
+    private UUID id;
+    @NotNull
+    private UUID floorId;
+    @NotNull
+    private UUID stickyId;
+    @NotNull
+    private String name;
+    @NotNull
+    private Boolean active;
 
-    public CreateLocation(JsonObject jsonObject) {
+    public StickyLocation(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

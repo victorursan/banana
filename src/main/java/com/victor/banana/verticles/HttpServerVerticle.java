@@ -16,16 +16,20 @@ import io.vertx.ext.healthchecks.HealthCheckHandler;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
-import io.vertx.ext.web.handler.*;
+import io.vertx.ext.web.handler.AuthHandler;
+import io.vertx.ext.web.handler.CorsHandler;
+import io.vertx.ext.web.handler.LoggerHandler;
+import io.vertx.ext.web.handler.OAuth2AuthHandler;
+
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 import static io.vertx.core.http.HttpHeaders.*;
 import static io.vertx.core.http.HttpMethod.GET;
 import static io.vertx.core.http.HttpMethod.*;
+import static io.vertx.ext.web.handler.LoggerFormat.SHORT;
 
 
 public class HttpServerVerticle extends AbstractVerticle {
@@ -40,7 +44,7 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var allowedOrigin = config.getString("allowedOrigin");
         final var selfHost = config.getString("selfHost");
 
-        final var cartchufiService = CartchufiService.createProxy(vertx, CARTCHUFI_ENGINE);
+        final var cartchufiService = CartchufiService.createProxy(vertx);
         final var hs = new APIServiceImpl(cartchufiService);
 
         final var allowedHeaders = Set.of(
@@ -58,12 +62,13 @@ public class HttpServerVerticle extends AbstractVerticle {
                 .flatMap(subrouter -> {
                     final var router = Router.router(vertx);
 
-                    router.route().handler(LoggerHandler.create());
+                    router.route().handler(LoggerHandler.create(SHORT));
 
                     router.route().handler(CorsHandler.create(allowedOrigin)
                             .allowedHeaders(allowedHeaders)
                             .allowCredentials(true)
                             .allowedMethods(allowedMethods));
+
                     return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
                             .flatMap(keycloakHandler(selfHost, router))
                             .map(oauth2 -> {

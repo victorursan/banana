@@ -1,11 +1,9 @@
-package com.victor.banana.models.events.stickies;
+package com.victor.banana.models.events.locations;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.List;
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;import java.util.List;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -17,14 +15,15 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class StickyLocation {
-    private UUID id;
-    private UUID locationId;
-    private String message;
-    @Singular
-    private List<Action> actions;
+public class FloorLocations {
+    @NotNull
+    private Building building;
+    @Builder.Default
+    private List<Floor> floors = List.of();
+    @Builder.Default
+    private List<StickyLocation> stickyLocations = List.of();
 
-    public StickyLocation(JsonObject jsonObject) {
+    public FloorLocations(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

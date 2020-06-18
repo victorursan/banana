@@ -9,30 +9,33 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static io.vertx.core.Future.failedFuture;
-import static io.vertx.core.Future.succeededFuture;
+import static com.victor.banana.utils.ExceptionUtils.failedNoElementFound;
+import static com.victor.banana.utils.ExceptionUtils.failedToMapElement;
 import static java.util.stream.Collectors.toList;
 
 public final class MappersHelper {
     private static final Logger log = LoggerFactory.getLogger(MappersHelper.class);
 
-    public static <E, T> Function<E, Future<T>> fToTF(Function<E, T> mapper) {
+    public static <E, T> Function<E, Future<T>> mapperToFuture(Function<E, T> mapper) {
+        return flatMapper(mapper.andThen(Future::succeededFuture));
+    }
+
+    public static <E, T> Function<E, Future<T>> flatMapper(Function<E, Future<T>> mapper) {
         return r -> {
             if (r != null) {
                 try {
-                    final var t = mapper.apply(r);
-                    return succeededFuture(t);
+                    return mapper.apply(r);
                 } catch (Exception e) {
                     log.error("Failed to map element", e);
-                    return failedFuture(e);
+                    return failedToMapElement(e.getMessage());
                 }
             }
             log.error("No element found");
-            return failedFuture("No Row found");
+            return failedNoElementFound();
         };
     }
 
-    public static <E, T> Function<E, Stream<T>> fToTS(Function<E, T> mapper) {
+    public static <E, T> Function<E, Stream<T>> mapperToStream(Function<E, T> mapper) {
         return r -> {
             if (r != null) {
                 try {
@@ -48,15 +51,37 @@ public final class MappersHelper {
         };
     }
 
+    public static <E, T> Function<List<E>, Future<List<T>>> mapTsF(Function<E, T> mapper) {
+        return elements -> CallbackUtils.mergeFutures(elements.stream()
+                .map(mapperToFuture(mapper))
+                .collect(toList()));
+    }
+
+    public static <E, T> Function<List<E>, Future<List<T>>> flatMapTsF(Function<E, Future<T>> mapper) {
+        return elements -> CallbackUtils.mergeFutures(elements.stream()
+                .map(flatMapper(mapper))
+                .collect(toList()));
+    }
+
+    public static <E, T> Function<List<E>, Future<List<T>>> mapTsF(Function<E, T> mapper, Comparator<? super T> comparator) {
+        return elements -> CallbackUtils.mergeFutures(elements.stream()
+                .map(mapperToFuture(mapper))
+                .collect(toList()))
+                .map(e -> {
+                    e.sort(comparator); //todo
+                    return e;
+                });
+    }
+
     public static <E, T> Function<List<E>, List<T>> mapTs(Function<E, T> mapper) {
         return elements -> elements.stream()
-                .flatMap(fToTS(mapper))
+                .flatMap(mapperToStream(mapper))
                 .collect(toList());
     }
 
     public static <E, T> Function<List<E>, List<T>> mapTs(Function<E, T> mapper, Comparator<? super T> comparator) {
         return elements -> elements.stream()
-                .flatMap(fToTS(mapper))
+                .flatMap(mapperToStream(mapper))
                 .sorted(comparator)
                 .collect(toList());
     }

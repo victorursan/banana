@@ -1,12 +1,11 @@
-package com.victor.banana.models.events.roles;
+package com.victor.banana.models.events.locations;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.*;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.UUID;
+import java.util.List;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
@@ -18,11 +17,13 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @ToString
 @EqualsAndHashCode
 @DataObject
-public class Role {
-    private UUID id;
-    private String type;
+public class BuildingFloors {
+    @NotNull
+    private Building building;
+    @Builder.Default
+    private List<Floor> floors = List.of();
 
-    public Role(JsonObject jsonObject) {
+    public BuildingFloors(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
     }
 

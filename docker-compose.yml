@@ -1,7 +1,7 @@
 version: '3'
 services:
   flyway:
-    image: flyway/flyway:6.4
+    image: flyway/flyway:6.4.3-alpine
     command: -url=jdbc:postgresql://db/postgres -user=postgres -password=P@ssw0rd -schemas=public,keycloak -connectRetries=60 migrate
     volumes:
       - ./src/main/resources/migrations:/flyway/sql

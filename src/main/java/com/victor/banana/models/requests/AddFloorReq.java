@@ -1,15 +1,14 @@
 package com.victor.banana.models.requests;
 
-import lombok.*;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.UUID;
+import lombok.ToString;
 
 @NoArgsConstructor
 @Getter
 @ToString
 @EqualsAndHashCode
-public class AddLocationReq {
-    private UUID parentLocation;
-    private String location;
+public class AddFloorReq {
+    private String name;
 }

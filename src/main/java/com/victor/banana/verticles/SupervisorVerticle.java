@@ -16,7 +16,6 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS;
-import static com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS;
 import static io.vertx.core.Future.future;
 
 public class SupervisorVerticle extends AbstractVerticle {

@@ -1,8 +1,10 @@
 package com.victor.banana.models.requests;
 
 
-import lombok.*;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -13,5 +15,5 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class UpdatePersonnelReq {
     private Optional<UUID> newRole = Optional.empty();
-    private Optional<UUID> newLocation = Optional.empty();
+    private Optional<UUID> newBuilding = Optional.empty();
 }

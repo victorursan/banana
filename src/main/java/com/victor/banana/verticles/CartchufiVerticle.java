@@ -10,7 +10,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.serviceproxy.ServiceBinder;
 
-import static com.victor.banana.utils.Constants.EventbusAddress.*;
+import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
 import static io.vertx.core.Future.failedFuture;
 import static io.vertx.core.Future.future;
 
@@ -22,9 +22,9 @@ public class CartchufiVerticle extends AbstractVerticle {
 
     private Future<Void> deployServiceBinder() {
         try {
-            final var dbService = DatabaseService.createProxy(vertx, DATABASE);
-            final var telegramBotService = TelegramBotService.createProxy(vertx, TELEGRAM_BOT);
-            final var keycloakClientService = KeycloakClientService.createProxy(vertx, KEYCLOAK_CLIENT);
+            final var dbService = DatabaseService.createProxy(vertx);
+            final var telegramBotService = TelegramBotService.createProxy(vertx);
+            final var keycloakClientService = KeycloakClientService.createProxy(vertx);
             final var service = new CartchufiServiceImpl(telegramBotService, dbService, keycloakClientService);
 
             return future(new ServiceBinder(vertx)

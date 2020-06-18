@@ -3,10 +3,7 @@ package com.victor.banana.models.events.messages;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
-
-import java.util.Optional;
-
-import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
+import org.jetbrains.annotations.NotNull;import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
 import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 
 @Builder
@@ -17,9 +14,12 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class RecvPersonnelMessage {
-    private CreateChannelMessage channel;
+    @NotNull
     private Long messageId;
+    @NotNull
     private String message;
+    @NotNull
+    private CreateChannelMessage channel;
 
     public RecvPersonnelMessage(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);
