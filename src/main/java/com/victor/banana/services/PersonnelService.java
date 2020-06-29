@@ -24,55 +24,35 @@ import io.vertx.core.Vertx;
 import java.util.List;
 
 import static com.victor.banana.utils.Constants.DeliveryOptionsConstants.LOCAL_DELIVERY;
-import static com.victor.banana.utils.Constants.EventbusAddress.CARTCHUFI_ENGINE;
+import static com.victor.banana.utils.Constants.EventbusAddress.PERSONNEL;
+import static com.victor.banana.utils.Constants.EventbusAddress.TICKETING;
 
 @ProxyGen
 @VertxGen
-public interface CartchufiService {
-
-    void createSticky(CreateSticky createSticky, Handler<AsyncResult<Sticky>> result);
-
-    void updateSticky(String stickyId, UpdateSticky update, Handler<AsyncResult<Sticky>> result);
-
-    void getStickies(Handler<AsyncResult<List<Sticky>>> result);
-
-    void getSticky(String stickyId, Handler<AsyncResult<Sticky>> result);
+public interface PersonnelService {
+    static PersonnelService createProxy(Vertx vertx) {
+        return new PersonnelServiceVertxEBProxy(vertx, PERSONNEL, LOCAL_DELIVERY);
+    }
 
     void createCompany(CreateCompany createCompany, Handler<AsyncResult<Company>> result);
 
     void createBuildingFloors(CreateBuildingFloors createBuilding, Handler<AsyncResult<BuildingFloors>> result);
 
-    void getScanSticky(String stickyLocation, Handler<AsyncResult<ScanSticky>> result);
-
     void getBuildingsForCompany(String companyId, Handler<AsyncResult<BuildingLocations>> result);
 
     void getFloorLocations(String buildingId, Handler<AsyncResult<FloorLocations>> result);
 
-//    void deleteLocation(String locationId, Handler<AsyncResult<Boolean>> result);
+    void getFloors(String buildingId, Handler<AsyncResult<List<Floor>>> result);
+
+    void getBuildings(String buildingId, Handler<AsyncResult<List<Building>>> result);
 
     void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result);
-
-    void getTicket(String ticketId, Handler<AsyncResult<Ticket>> result);
-
-    void getTickets(TicketFilter ticketFilter, Handler<AsyncResult<List<Ticket>>> result);
-
-    void requestPersonnelTicketsInState(Long chatId, TicketState state);
-
-    void checkIn(Long chatId);
-
-    void checkOut(Long chatId);
-
-    void actionSelected(Personnel personnel, ActionSelected actionSelected, Handler<AsyncResult<Ticket>> result);
 
     void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result);
 
     void receivedPersonnelMessage(RecvPersonnelMessage chatMessage);
 
     void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<TelegramChannel>> result);
-
-    void receivedMessageUpdate(RecvUpdateMessage updateMessage);
-
-    void updateTicketState(String ticketId, UpdateTicketState updateTicketState, Handler<AsyncResult<Ticket>> result);
 
     void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result);
 
@@ -84,7 +64,4 @@ public interface CartchufiService {
 
     void addTelegramToUserProfile(TelegramLoginData telegramLoginData, Handler<AsyncResult<UserProfile>> result);
 
-    static CartchufiService createProxy(Vertx vertx) {
-        return new CartchufiServiceVertxEBProxy(vertx, CARTCHUFI_ENGINE, LOCAL_DELIVERY);
-    }
 }

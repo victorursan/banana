@@ -13,7 +13,7 @@ import java.util.List;
 @ToString
 @EqualsAndHashCode
 public class AddStickyReq {
-    private String message;
-    private List<ActionStickyReq> actions;
+    private String title;
+    private List<AddActionStickyReq> actions;
     private List<AddStickyLocationReq> locations;
 }

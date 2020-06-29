@@ -17,4 +17,8 @@ public class FloorLocationsResp {
     private List<FloorResp> floors = List.of();
     @Builder.Default
     private List<StickyLocationResp> stickyLocations = List.of();
+    @Builder.Default
+    private List<DeskResp> desks = List.of();
+    @Builder.Default
+    private List<RoomResp> rooms = List.of();
 }

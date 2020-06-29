@@ -3,7 +3,8 @@ package com.victor.banana.controllers.bot;
 import com.victor.banana.models.events.TelegramChannel;
 import com.victor.banana.models.events.messages.*;
 import com.victor.banana.models.events.tickets.TicketState;
-import com.victor.banana.services.CartchufiService;
+import com.victor.banana.services.PersonnelService;
+import com.victor.banana.services.TicketingService;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.logging.Logger;
@@ -38,13 +39,15 @@ public final class BotController extends TelegramLongPollingBot {
 
     private final String botUsername;
     private final String botToken;
-    private final CartchufiService cartchufiService;
+    private final TicketingService ticketingService;
+    private final PersonnelService personnelService;
     private final CommandsHandler commandsHandler;
 
-    public BotController(String botUsername, String botToken, CartchufiService cartchufiService) {
+    public BotController(String botUsername, String botToken, TicketingService ticketingService, PersonnelService personnelService) {
         this.botUsername = botUsername;
         this.botToken = botToken;
-        this.cartchufiService = cartchufiService;
+        this.ticketingService = ticketingService;
+        this.personnelService = personnelService;
         this.commandsHandler = new CommandsHandler(botUsername);
         commandsHandler.registerCommandWith("start", "start command", true, chat -> {
 
@@ -54,21 +57,21 @@ public final class BotController extends TelegramLongPollingBot {
                     .lastName(Optional.ofNullable(chat.getLastName()))
                     .username(String.format("@%s", chat.getUserName()))
                     .build();
-            Future.<TelegramChannel>future(f -> cartchufiService.createChannel(createChannelMessage, f))
+            Future.<TelegramChannel>future(f -> personnelService.createChannel(createChannelMessage, f))
                     .onSuccess(telegramChannel -> log.debug("Created telegram channel"))
                     .onFailure(t -> log.error("Something went wrong creating telegram channel", t));
         });
         commandsHandler.registerCommandWith("my_tickets", "Here are all your acquired tickets. " +
                         "This means the rest of the team is expecting you to finish the task. " +
                         "You can press *Resolve* to complete them or *Back* to set them back to open.", false,
-                chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.ACQUIRED));
+                chat -> ticketingService.requestPersonnelTicketsInState(chat.getId(), TicketState.ACQUIRED));
         commandsHandler.registerCommandWith("open_tickets", "Here are all the open ticket in your building. " +
                         "Press *Acquire* to inform the rest of the team that you are responsible for this task.", false,
-                chat -> cartchufiService.requestPersonnelTicketsInState(chat.getId(), TicketState.PENDING));
+                chat -> ticketingService.requestPersonnelTicketsInState(chat.getId(), TicketState.PENDING));
         commandsHandler.registerCommandWith("check_in", "Check-in to start receiving tickets in your building.", false,
-                chat -> cartchufiService.checkIn(chat.getId()));
+                chat -> ticketingService.checkIn(chat.getId()));
         commandsHandler.registerCommandWith("check_out", "Check-out to stop receiving tickets in your building.", false,
-                chat -> cartchufiService.checkOut(chat.getId()));
+                chat -> ticketingService.checkOut(chat.getId()));
 
         executeMessages(List.of(new SetMyCommands(commandsHandler.getBotCommands())))
                 .onFailure(t -> log.error("failed register commands", t));
@@ -160,7 +163,7 @@ public final class BotController extends TelegramLongPollingBot {
                     .messageId(updateMessage.getMessageId().longValue())
                     .message(updateMessage.getText())
                     .build();
-            cartchufiService.receivedPersonnelMessage(personnelMessage);
+            personnelService.receivedPersonnelMessage(personnelMessage);
         } else if (update.hasCallbackQuery()) {
             final var callbackquery = update.getCallbackQuery();
             final var callbackqueryMessage = callbackquery.getMessage();
@@ -175,7 +178,7 @@ public final class BotController extends TelegramLongPollingBot {
                         .chatId(chatId)
                         .state(messageState)
                         .build();
-                cartchufiService.receivedMessageUpdate(recvUpdateMessage);
+                ticketingService.receivedMessageUpdate(recvUpdateMessage);
             }, () -> log.error("Invalid message state."));
 
         }

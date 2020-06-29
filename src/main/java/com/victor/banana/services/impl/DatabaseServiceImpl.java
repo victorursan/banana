@@ -3,6 +3,8 @@ package com.victor.banana.services.impl;
 import com.victor.banana.controllers.db.QueryHandler;
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.desk.Desk;
+import com.victor.banana.models.events.desk.DeskFilter;
 import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
@@ -10,6 +12,8 @@ import com.victor.banana.models.events.messages.SentDeleteMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
+import com.victor.banana.models.events.room.Room;
+import com.victor.banana.models.events.room.RoomFilter;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
@@ -26,9 +30,12 @@ import org.jooq.impl.DefaultConfiguration;
 import java.util.List;
 import java.util.UUID;
 
+import static com.victor.banana.controllers.db.DeskQueryHandler.*;
 import static com.victor.banana.controllers.db.LocationQueryHandler.*;
 import static com.victor.banana.controllers.db.PersonnelQueryHandler.*;
 import static com.victor.banana.controllers.db.QueryExecutorHandler.*;
+import static com.victor.banana.controllers.db.RoomQueryHandler.addRoomQ;
+import static com.victor.banana.controllers.db.RoomQueryHandler.getRoomsQ;
 import static com.victor.banana.controllers.db.RowMappers.ticketStateToState;
 import static com.victor.banana.controllers.db.StickyQueryHandler.*;
 import static com.victor.banana.controllers.db.TicketQueryHandler.*;
@@ -54,6 +61,7 @@ public class DatabaseServiceImpl implements DatabaseService {
     public final void addBuildingFloors(BuildingFloors buildingFloors, Handler<AsyncResult<BuildingFloors>> result) {
         queryHandler.run(addBuildingFloorsQ(buildingFloors)).map(buildingFloors).onComplete(result);
     }
+
     @Override
     public final void addBuilding(Building building, Handler<AsyncResult<Building>> result) {
         queryHandler.run(addBuildingQ(building)).map(building).onComplete(result);
@@ -72,6 +80,26 @@ public class DatabaseServiceImpl implements DatabaseService {
     @Override
     public final void addChat(TelegramChannel chat, Handler<AsyncResult<TelegramChannel>> result) {
         queryHandler.run(addChatQ(chat)).map(chat).onComplete(result);
+    }
+
+    @Override
+    public final void addDesk(Desk desk, Handler<AsyncResult<Desk>> result) {
+        queryHandler.run(addDeskQ(desk)).map(desk).onComplete(result);
+    }
+
+    @Override
+    public final void addRoom(Room room, Handler<AsyncResult<Room>> result) {
+        queryHandler.run(addRoomQ(room)).map(room).onComplete(result);
+    }
+
+    @Override
+    public final void findDesks(DeskFilter filter, Handler<AsyncResult<List<Desk>>> result) {
+        queryHandler.run(getDesksQ(filter)).onComplete(result);
+    }
+
+    @Override
+    public final void findRooms(RoomFilter filter, Handler<AsyncResult<List<Room>>> result) {
+        queryHandler.run(getRoomsQ(filter)).onComplete(result);
     }
 
     @Override
@@ -151,18 +179,19 @@ public class DatabaseServiceImpl implements DatabaseService {
     }
 
     @Override
-    public final void getCompanyLocation(String locationId, Handler<AsyncResult<Company>> result) {
-//todo
+    public final void getFloors(String buildingId, Handler<AsyncResult<List<Floor>>> result) {
+        queryHandler.run(getFloorsForBuildingQ(UUID.fromString(buildingId))).onComplete(result);
+    }
+
+
+    @Override
+    public final void getBuildings(String companyId, Handler<AsyncResult<List<Building>>> result) {
+        queryHandler.run(getBuildingsForCompanyQ(UUID.fromString(companyId))).onComplete(result);
     }
 
     @Override
-    public final void getBuildingLocation(String locationId, Handler<AsyncResult<Building>> result) {
-//todo
-    }
-
-    @Override
-    public final void getFloorLocation(String locationId, Handler<AsyncResult<Floor>> result) {
-//todo
+    public final void getBuildingLocation(String buildingId, Handler<AsyncResult<Building>> result) {
+        queryHandler.run(getBuildingWithIdQ(UUID.fromString(buildingId))).onComplete(result);
     }
 
     @Override
@@ -229,7 +258,7 @@ public class DatabaseServiceImpl implements DatabaseService {
 
     @Override
     public final void addTicket(Ticket ticket, Handler<AsyncResult<Ticket>> result) {
-        queryHandler.run(addTicketQ(ticket)).map(ticket).onComplete(result);
+        queryHandler.run(addTicketQ(ticket)).flatMap(ignore ->  queryHandler.run(getTicketQ(ticket.getId()))).onComplete(result);
     }
 
     @Override

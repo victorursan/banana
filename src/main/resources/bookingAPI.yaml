@@ -1,0 +1,200 @@
+openapi: "3.0.3"
+info:
+  version: 1.0.0
+  title: Swagger Booking
+servers:
+  - url: http://localhost:8081/api/
+paths:
+  /desks:
+    get:
+      summary: Get all desks for the user's building
+      operationId: getDesks
+      tags:
+        - desks
+      responses:
+        '200':
+          description: A list of all the desks
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Desks'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Add a new desk
+      operationId: addDesk
+      tags:
+        - desks
+      requestBody:
+        required: true
+        description: The desk to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDesk'
+      responses:
+        '201':
+          description: The desk that was added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Desk'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /rooms:
+    get:
+      summary: Get all the rooms for the user's building
+      operationId: getRooms
+      tags:
+        - rooms
+      responses:
+        '200':
+          description: A list of all the rooms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rooms'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      summary: Add a new room
+      operationId: addRoom
+      tags:
+        - rooms
+      requestBody:
+        required: true
+        description: The room to be added
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddRoom'
+      responses:
+        '201':
+          description: The room that was added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Desks:
+      type: array
+      items:
+        $ref: '#/components/schemas/Desk'
+
+    Rooms:
+      type: array
+      items:
+        $ref: '#/components/schemas/Room'
+
+    Desk:
+      type: object
+      required:
+        - id
+        - floorId
+        - name
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active:
+          type: boolean
+
+    Room:
+      type: object
+      required:
+        - id
+        - floorId
+        - name
+        - roomType
+        - capacity
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        roomType:
+          $ref: '#/components/schemas/RoomType'
+        capacity:
+          type: integer
+          format: int32
+        active:
+          type: boolean
+
+    AddRoom:
+      type: object
+      required:
+        - floorId
+        - name
+        - roomType
+        - capacity
+      properties:
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        roomType:
+          $ref: '#/components/schemas/RoomType'
+        capacity:
+          type: integer
+          format: int32
+
+    AddDesk:
+      type: object
+      required:
+        - floorId
+        - name
+      properties:
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    RoomType:
+      type: string
+      enum: ['conference_room', 'hub']
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string

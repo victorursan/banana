@@ -7,6 +7,7 @@ import io.vertx.core.logging.LoggerFactory;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.victor.banana.utils.ExceptionUtils.failedNoElementFound;
@@ -67,10 +68,7 @@ public final class MappersHelper {
         return elements -> CallbackUtils.mergeFutures(elements.stream()
                 .map(mapperToFuture(mapper))
                 .collect(toList()))
-                .map(e -> {
-                    e.sort(comparator); //todo
-                    return e;
-                });
+                .map(e -> e.stream().sorted(comparator).collect(Collectors.toUnmodifiableList()));
     }
 
     public static <E, T> Function<List<E>, List<T>> mapTs(Function<E, T> mapper) {

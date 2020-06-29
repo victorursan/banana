@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 
+import static com.victor.banana.controllers.db.DeskQueryHandler.getDesksForBuildingIdQ;
 import static com.victor.banana.controllers.db.QueryHandler.*;
+import static com.victor.banana.controllers.db.RoomQueryHandler.getRoomsForBuildingIdQ;
 import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static io.vertx.core.Future.succeededFuture;
@@ -45,7 +47,7 @@ public final class LocationQueryHandler {
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> addFloorsQ(List<Floor> floors) {
-        if(floors.size() == 0) {
+        if (floors.size() == 0) {
             return t -> succeededFuture();
         }
         return execute(insertIntoFloor(floors), 1, "add floors");
@@ -73,11 +75,15 @@ public final class LocationQueryHandler {
             final var buildingF = getBuildingWithIdQ(buildingId).apply(t);
             final var floorsF = getFloorsForBuildingQ(buildingId).apply(t);
             final var stickyLocationsF = getStickyLocationsForBuildingIdQ(buildingId).apply(t);
-            return CallbackUtils.mergeFutures(buildingF, floorsF, stickyLocationsF)
+            final var deskLocationsF = getDesksForBuildingIdQ(buildingId).apply(t);
+            final var roomLocationsF = getRoomsForBuildingIdQ(buildingId).apply(t);
+            return CallbackUtils.mergeFutures(buildingF, floorsF, stickyLocationsF, deskLocationsF, roomLocationsF)
                     .map(a -> FloorLocations.builder()
                             .building(buildingF.result())
                             .floors(floorsF.result())
                             .stickyLocations(stickyLocationsF.result())
+                            .desks(deskLocationsF.result())
+                            .rooms(roomLocationsF.result())
                             .build()
                     );
         });
@@ -85,18 +91,17 @@ public final class LocationQueryHandler {
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Company>> getCompanyWithIdQ(UUID companyId) {
-        return findOne(selectCompanyWhere(COMPANY.COMPANY_ID.eq(companyId)),
-                rowToCompany());
+        return findOne(selectWhere(selectCompany(), COMPANY.COMPANY_ID.eq(companyId)), rowToCompany());
     }
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Building>> getBuildingWithIdQ(UUID buildingId) {
-        return findOne(selectBuildingWhere(BUILDING.BUILDING_ID.eq(buildingId)), rowToBuilding());
+        return findOne(selectWhere(selectBuilding(), BUILDING.BUILDING_ID.eq(buildingId)), rowToBuilding());
     }
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<List<Building>>> getBuildingsForCompanyQ(UUID companyId) {
-        return findMany(selectBuildingWhere(BUILDING.COMPANY_ID.eq(companyId)), rowToBuilding());
+        return findMany(selectWhere(selectBuilding(), BUILDING.COMPANY_ID.eq(companyId)), rowToBuilding());
     }
 
     @NotNull
@@ -108,7 +113,7 @@ public final class LocationQueryHandler {
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<List<Floor>>> getFloorsForBuildingQ(UUID buildingId) {
-        return findMany(selectFloorWhere(FLOOR.BUILDING_ID.eq(buildingId)), rowToFloor());
+        return findMany(selectWhere(selectFloor(), FLOOR.BUILDING_ID.eq(buildingId)), rowToFloor());
     }
 
     @NotNull
@@ -119,30 +124,10 @@ public final class LocationQueryHandler {
                 rowToStickyLocation());
     }
 
+
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<List<StickyLocation>>> getStickyLocationsForStickyIdQ(UUID stickyId) {
-        return findMany(selectStickyLocationWhere(STICKY_LOCATION.STICKY_ID.eq(stickyId)),
-                rowToStickyLocation());
-    }
-
-    @NotNull
-    private static Function<DSLContext, ResultQuery<Record5<UUID, UUID, UUID, String, Boolean>>> selectStickyLocationWhere(Condition condition) {
-        return selectStickyLocation().andThen(s -> s.where(condition));
-    }
-
-    @NotNull
-    private static Function<DSLContext, ResultQuery<Record4<UUID, UUID, String, Boolean>>> selectBuildingWhere(Condition condition) {
-        return selectBuilding().andThen(s -> s.where(condition));
-    }
-
-    @NotNull
-    private static Function<DSLContext, ResultQuery<Record4<UUID, UUID, String, Boolean>>> selectFloorWhere(Condition condition) {
-        return selectFloor().andThen(s -> s.where(condition));
-    }
-
-    @NotNull
-    private static Function<DSLContext, ResultQuery<Record3<UUID, String, Boolean>>> selectCompanyWhere(Condition condition) {
-        return selectCompany().andThen(s -> s.where(condition));
+        return findMany(selectWhere(selectStickyLocation(), STICKY_LOCATION.STICKY_ID.eq(stickyId)), rowToStickyLocation());
     }
 
     @NotNull

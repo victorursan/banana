@@ -1,7 +1,7 @@
 openapi: "3.0.3"
 info:
   version: 1.0.0
-  title: Swagger Cartchufi
+  title: Swagger Ticketing
 servers:
   - url: http://localhost:8081/api/
 paths:
@@ -15,6 +15,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       tags:
         - locations
       responses:
@@ -30,20 +31,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-  /locations/buildings:
+  /locations/floors:
     get:
-      summary: Get all locations for the user's building
+      summary: Get all floors for the user's building
+      operationId: getFloors
+      tags:
+        - locations
+      responses:
+        '200':
+          description: A list of all the floors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Floors'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /locations/detailed/buildings:
+    get:
+      summary: Get all detailed building location
       operationId: getFloorLocations
       tags:
         - locations
       responses:
         '200':
-          description: A list of all the locations
+          description: The building details
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/FloorLocations'
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /locations/buildings:
+    get:
+      summary: Get all buildings
+      operationId: getBuildings
+      tags:
+        - locations
+      responses:
+        '200':
+          description: A list of all the buildings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Buildings'
         default:
           description: unexpected error
           content:
@@ -112,6 +152,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: getTicket
       tags:
         - tickets
@@ -136,6 +177,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: updateTicket
       tags:
         - tickets
@@ -221,6 +263,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: scanSticky
       tags:
         - stickies
@@ -294,6 +337,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: getSticky
       responses:
         '200':
@@ -318,6 +362,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: updateSticky
       requestBody:
         required: true
@@ -371,6 +416,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: getPersonnel
       responses:
         '200':
@@ -395,6 +441,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       operationId: updatePersonnel
       requestBody:
         required: true
@@ -532,6 +579,8 @@ components:
         - building
         - floors
         - stickyLocations
+        - desks
+        - rooms
       properties:
         building:
           $ref: '#/components/schemas/Building'
@@ -539,6 +588,67 @@ components:
           $ref: '#/components/schemas/Floors'
         stickyLocations:
           $ref: '#/components/schemas/StickyLocations'
+        desks:
+          $ref: '#/components/schemas/Desks'
+        rooms:
+          $ref: '#/components/schemas/Rooms'
+
+    Desks:
+      type: array
+      items:
+        $ref: '#/components/schemas/Desk'
+
+    Rooms:
+      type: array
+      items:
+        $ref: '#/components/schemas/Room'
+
+    Desk:
+      type: object
+      required:
+        - id
+        - floorId
+        - name
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active:
+          type: boolean
+
+    Room:
+      type: object
+      required:
+        - id
+        - floorId
+        - name
+        - roomType
+        - capacity
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        floorId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        roomType:
+          type: string
+          enum: ['conference_room', 'hub']
+        capacity:
+          type: integer
+          format: int32
+        active:
+          type: boolean
+
 
     AddBuildingFloors:
       type: object
@@ -583,6 +693,7 @@ components:
       properties:
         companyId:
           type: string
+          format: uuid
         name:
           type: string
 
@@ -606,21 +717,22 @@ components:
       type: object
       required:
         - id
-        - firstName
-        - lastName
-        - email
       properties:
         id:
           type: string
+          format: uuid
         firstName:
           type: string
         lastName:
           type: string
         email:
           type: string
+          format: email
+        telegramUsername:
+          type: string
         role:
           $ref: '#/components/schemas/Role'
-        location:
+        building:
           $ref: '#/components/schemas/Building'
 
     AddCompany:
@@ -636,11 +748,15 @@ components:
       required:
         - id
         - name
+        - active
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
+        active:
+          type: boolean
 
     Floor:
       type: object
@@ -652,8 +768,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         buildingId:
           type: string
+          format: uuid
         name:
           type: string
         active:
@@ -674,8 +792,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         companyId:
           type: string
+          format: uuid
         name:
           type: string
         active:
@@ -697,10 +817,13 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         floorId:
           type: string
+          format: uuid
         stickyId:
           type: string
+          format: uuid
         name:
           type: string
         active:
@@ -719,6 +842,7 @@ components:
       properties:
         floorId:
           type: string
+          format: uuid
         name:
           type: string
 
@@ -727,40 +851,68 @@ components:
       items:
         $ref: '#/components/schemas/AddStickyLocation'
 
+    TicketState:
+      type: string
+      enum: ['pending', 'acquired', 'solved']
+
     Ticket:
       type: object
       required:
         - ticketId
         - message
         - state
+        - createdAt
       properties:
         ticketId:
           type: string
+          format: uuid
         message:
           type: string
         state:
+          $ref: '#/components/schemas/TicketState'
+        createdAt:
           type: string
+          format: date-time
+        acquiredAt:
+          type: string
+          format: date-time
+        solvedAt:
+          type: string
+          format: date-time
+        ownedBy:
+          type: string
+          format: uuid
 
     Tickets:
       type: array
       items:
         $ref: '#/components/schemas/Ticket'
 
+    ActionState:
+      type: string
+      enum: ['available', 'in_progress']
+
     Action:
       type: object
       required:
         - id
+        - name
         - roles
-        - message
+        - state
       properties:
         id:
           type: string
-        rolesId:
+          format: uuid
+        roles:
           type: array
           items:
             type: string
-        message:
+        name:
           type: string
+        description:
+          type: string
+        state:
+          $ref: '#/components/schemas/ActionState'
 
     Actions:
       type: array
@@ -772,14 +924,16 @@ components:
       required:
         - id
         - locationId
-        - message
+        - title
         - actions
       properties:
         id:
           type: string
+          format: uuid
         locationId:
           type: string
-        message:
+          format: uuid
+        title:
           type: string
         actions:
           $ref: '#/components/schemas/Actions'
@@ -793,14 +947,18 @@ components:
       type: object
       required:
         - id
-        - message
+        - title
+        - active
         - actions
         - locations
       properties:
         id:
           type: string
-        message:
+          format: uuid
+        title:
           type: string
+        active:
+          type: boolean
         actions:
           $ref: '#/components/schemas/Actions'
         locations:
@@ -809,10 +967,12 @@ components:
     AddAction:
       type: object
       required:
-        - action
+        - name
         - roles
       properties:
-        action:
+        name:
+          type: string
+        description:
           type: string
         roles:
           type: array
@@ -827,11 +987,11 @@ components:
     AddSticky:
       type: object
       required:
-        - message
+        - title
         - actions
         - locations
       properties:
-        message:
+        title:
           type: string
         actions:
           $ref: '#/components/schemas/AddActions'
@@ -847,12 +1007,14 @@ components:
           type: array
           items:
             type: string
+            format: uuid
         update:
           $ref: '#/components/schemas/ActionUpdates'
         remove:
           type: array
           items:
             type: string
+            format: uuid
 
     ActionUpdates:
       type: array
@@ -866,7 +1028,10 @@ components:
       properties:
         id:
           type: string
-        action:
+          format: uuid
+        name:
+          type: string
+        description:
           type: string
         roles:
           type: string
@@ -883,8 +1048,10 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         floorId:
           type: string
+          format: uuid
         name:
           type: string
 
@@ -898,17 +1065,19 @@ components:
           type: array
           items:
             type: string
+            format: uuid
         update:
           $ref: '#/components/schemas/StickyLocationUpdate'
         remove:
           type: array
           items:
             type: string
+            format: uuid
 
     UpdateSticky:
       type: object
       properties:
-        message:
+        title:
           type: string
         active:
           type: boolean
@@ -925,8 +1094,10 @@ components:
       properties:
         actionId:
           type: string
+          format: uuid
         locationId:
           type: string
+          format: uuid
 
     Role:
       type: object
@@ -936,6 +1107,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         role:
           type: string
 
@@ -957,8 +1129,9 @@ components:
       required:
         - newState
       properties:
-        newRole:
-          type: string
+        newState:
+          $ref: '#/components/schemas/TicketState'
+
 
     AllPersonnel:
       type: array
@@ -972,14 +1145,22 @@ components:
       properties:
         id:
           type: string
+          format: uuid
         firstName:
           type: string
         lastName:
           type: string
+        email:
+          type: string
+          format: email
+        username:
+          type: string
         buildingId:
           type: string
+          format: uuid
         roleId:
           type: string
+          format: uuid
 
     Error:
       type: object

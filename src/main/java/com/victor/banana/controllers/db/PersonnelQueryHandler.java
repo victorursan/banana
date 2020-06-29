@@ -74,7 +74,7 @@ public final class PersonnelQueryHandler {
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Personnel>> getPersonnelQ(UUID personnelId) {
-        return findOne(selectPersonnelWhere(PERSONNEL.PERSONNEL_ID.eq(personnelId)), rowToPersonnel());
+        return findOne(selectWhere(selectPersonnel(), PERSONNEL.PERSONNEL_ID.eq(personnelId)), rowToPersonnel());
     }
 
     @NotNull
@@ -83,15 +83,10 @@ public final class PersonnelQueryHandler {
         final var isOperating = isNotAdmin.and(filter.getOperating() ? operating : DSL.not(operating)).and(PERSONNEL.ACTIVE.eq(true));
         return t -> filter.getUsername()
                 .map(username ->
-                        findOne(selectPersonnelWhere(isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))), rowToPersonnel())
+                        findOne(selectWhere(selectPersonnel(), isOperating.and(TELEGRAM_CHANNEL.USERNAME.equalIgnoreCase(username))), rowToPersonnel())
                                 .apply(t)
                                 .map(List::of))
-                .orElseGet(() -> findMany(selectPersonnelWhere(isOperating), rowToPersonnel()).apply(t));
-    }
-
-    @NotNull
-    private static Function<DSLContext, ResultQuery<Record8<UUID, UUID, UUID, String, String, String, Long, String>>> selectPersonnelWhere(Condition condition) {
-        return selectPersonnel().andThen(s -> s.where(condition));
+                .orElseGet(() -> findMany(selectWhere(selectPersonnel(), isOperating), rowToPersonnel()).apply(t));
     }
 
     @NotNull

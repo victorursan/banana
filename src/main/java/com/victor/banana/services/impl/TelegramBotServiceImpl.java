@@ -3,7 +3,8 @@ package com.victor.banana.services.impl;
 import com.victor.banana.controllers.bot.BotController;
 import com.victor.banana.models.configs.TelegramBotConfig;
 import com.victor.banana.models.events.messages.*;
-import com.victor.banana.services.CartchufiService;
+import com.victor.banana.services.PersonnelService;
+import com.victor.banana.services.TicketingService;
 import com.victor.banana.services.TelegramBotService;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
@@ -20,11 +21,11 @@ public class TelegramBotServiceImpl implements TelegramBotService {
     private final BotController botController;
 
     @SneakyThrows
-    public TelegramBotServiceImpl(TelegramBotConfig config, CartchufiService cartchufiService) {
+    public TelegramBotServiceImpl(TelegramBotConfig config, TicketingService ticketingService, PersonnelService personnelService) {
         ApiContextInitializer.init();
 
         final var botsApi = new TelegramBotsApi();
-        botController = new BotController(config.getBotUsername(), config.getBotToken(), cartchufiService);
+        botController = new BotController(config.getBotUsername(), config.getBotToken(), ticketingService, personnelService);
         botsApi.registerBot(botController);
     }
 

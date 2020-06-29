@@ -4,6 +4,7 @@ import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
 import org.jetbrains.annotations.NotNull;import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.victor.banana.utils.SerdesUtils.deserializeIntoObject;
@@ -24,11 +25,11 @@ public class Action {
     @NotNull
     private String name;
     @NotNull
-    private String description;
-    @NotNull
     private Boolean active;
     @Builder.Default
     private List<UUID> roles = List.of();
+    @Builder.Default
+    private Optional<String> description = Optional.empty();
     @Builder.Default
     private ActionState state = ActionState.AVAILABLE; //todo
 

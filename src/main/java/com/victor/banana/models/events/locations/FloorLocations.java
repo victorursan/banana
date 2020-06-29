@@ -1,5 +1,7 @@
 package com.victor.banana.models.events.locations;
 
+import com.victor.banana.models.events.desk.Desk;
+import com.victor.banana.models.events.room.Room;
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.json.JsonObject;
 import lombok.*;
@@ -22,6 +24,10 @@ public class FloorLocations {
     private List<Floor> floors = List.of();
     @Builder.Default
     private List<StickyLocation> stickyLocations = List.of();
+    @Builder.Default
+    private List<Desk> desks = List.of();
+    @Builder.Default
+    private List<Room> rooms = List.of();
 
     public FloorLocations(JsonObject jsonObject) {
         deserializeIntoObject(this, jsonObject);

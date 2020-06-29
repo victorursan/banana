@@ -34,6 +34,7 @@ public interface TicketAction {
                 .locationId(stickyAction.getLocationId())
                 .message(String.format("%s | %s | %s", stickyAction.getFloor(), stickyAction.getLocation(), stickyAction.getActionMessage()))
                 .state(PENDING)
+                .createdAt(OffsetDateTime.now())
                 .build();
     }
 

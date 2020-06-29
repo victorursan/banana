@@ -41,8 +41,6 @@ public class SupervisorVerticle extends AbstractVerticle {
                 .registerModule(new Jdk8Module())
                 .registerModule(new JavaTimeModule())
                 .disable(WRITE_DATES_AS_TIMESTAMPS);
-//        DatabindCodec.mapper().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-//        DatabindCodec.mapper().setDateFormat(new StdDateFormat().withColonInTimeZone(true));
 
         return deployVerticle(HttpServerVerticle::new, httpConf)
                 .flatMap(ignore -> deployVerticle(TelegramBotVerticle::new, botConf))

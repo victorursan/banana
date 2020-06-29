@@ -16,6 +16,7 @@ import java.util.UUID;
 @EqualsAndHashCode
 public class ActionUpdateReq {
     private UUID id;
-    private Optional<String> action = Optional.empty();
+    private Optional<String> name = Optional.empty();
+    private Optional<String> description = Optional.empty();
     private List<UUID> roles = List.of();
 }

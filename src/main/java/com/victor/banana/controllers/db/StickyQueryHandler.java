@@ -5,9 +5,9 @@ import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.locations.StickyLocation;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.utils.CallbackUtils;
+import com.victor.banana.utils.Constants;
 import io.github.jklingsporn.vertx.jooq.classic.reactivepg.ReactiveClassicGenericQueryExecutor;
 import io.vertx.core.Future;
-import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.jooq.Record;
 import org.jooq.*;
@@ -23,6 +23,7 @@ import static com.victor.banana.controllers.db.RowMappers.*;
 import static com.victor.banana.jooq.Tables.*;
 import static com.victor.banana.utils.CallbackUtils.mergeFutures;
 import static com.victor.banana.utils.MappersHelper.flatMapTsF;
+import static com.victor.banana.utils.MappersHelper.mapTs;
 import static io.vertx.core.Future.succeededFuture;
 import static java.util.stream.Collectors.toList;
 import static org.jooq.impl.DSL.*;
@@ -48,7 +49,11 @@ public final class StickyQueryHandler {
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> updateStickyActionsQ(UpdateStickyAction updates) {
         return withTransaction(t -> {
             final var addActions = addStickyActionsQ(updates.getAdd()).apply(t);
-            final var updateActions = flatMapTsF((Action update) -> updateStickyActionQ(update).apply(t)).apply(updates.getUpdate());
+            final var updateActions = flatMapTsF((Action update) ->
+                    updateStickyActionQ(update).apply(t)
+                            .flatMap(ignore -> deleteStickyActionRolesQ(update.getId()).apply(t))
+                            .flatMap(ignore -> addStickyActionRolesQ(update).apply(t))
+            ).apply(updates.getUpdate());
             final var activateActions = activateActionsQ(updates.getActivate()).apply(t);
             final var deactivateActions = deactivateActionsQ(updates.getRemove()).apply(t);
             return mergeFutures(addActions, activateActions, deactivateActions, updateActions)
@@ -111,7 +116,7 @@ public final class StickyQueryHandler {
                 return actionsQ.map(actionsR -> ScanSticky.builder()
                         .id(stickyTitle.getId())
                         .locationId(locationId)
-                        .message(stickyTitle.getTitle())
+                        .title(stickyTitle.getTitle())
                         .actions(actionsR)
                         .build());
             });
@@ -129,12 +134,7 @@ public final class StickyQueryHandler {
 
     @NotNull
     private static Function<ReactiveClassicGenericQueryExecutor, Future<StickyTitle>> getStickyTitle(UUID stickyId) {
-        return findOne(selectStickyTitle(STICKY.STICKY_ID.eq(stickyId)), rowToStickyTitle());
-    }
-
-    @NotNull
-    private static Function<DSLContext, SelectConditionStep<Record3<UUID, String, Boolean>>> selectStickyTitle(Condition condition) {
-        return selectStickyTitle().andThen(a -> a.where(condition));
+        return findOne(selectWhere(selectStickyTitle(), STICKY.STICKY_ID.eq(stickyId)), rowToStickyTitle());
     }
 
     @NotNull
@@ -217,22 +217,42 @@ public final class StickyQueryHandler {
 
     @NotNull
     private static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> updateStickyActionQ(Action actionUpdate) {
-        return execute(c ->
-                        c.update(STICKY_ACTION)
-                                //.set(STICKY_ACTION.ROLE_ID, actionUpdate.getRoles()) todo
-                                .set(STICKY_ACTION.NAME, actionUpdate.getName())
-                                .set(STICKY_ACTION.DESCRIPTION, actionUpdate.getDescription())
-                                .where(STICKY_ACTION.ACTION_ID.eq(actionUpdate.getId())),
+        return execute(updateStickyAction(actionUpdate),
                 1, "update action");
     }
 
     @NotNull
+    private static Function<DSLContext, UpdateConditionStep<Record>> updateStickyAction(Action actionUpdate) {
+        return c -> c.update(STICKY_ACTION)
+                .set(STICKY_ACTION.NAME, actionUpdate.getName())
+                .set(STICKY_ACTION.DESCRIPTION, actionUpdate.getDescription().orElse(null))
+                .set(STICKY_ACTION.ACTIVE, actionUpdate.getActive())
+                .where(STICKY_ACTION.ACTION_ID.eq(actionUpdate.getId()));
+    }
+
+    @NotNull
+    private static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> deleteStickyActionRolesQ(UUID actionId) {
+        return execute(deleteStickyActionRoles(actionId),
+                i -> (i > 0 && i <= Constants.PersonnelRole.values().length), "delete sticky action roles");
+    }
+
+    @NotNull
+    private static Function<DSLContext, DeleteConditionStep<Record>> deleteStickyActionRoles(UUID actionId) {
+        return c -> c.deleteFrom(STICKY_ACTION_ROLE).where(STICKY_ACTION_ROLE.ACTION_ID.eq(actionId));
+    }
+
+    @NotNull
     private static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> updateStickyLocationQ(StickyLocation stickyLocationUpdate) {
-        return execute(c -> c.update(STICKY_LOCATION) //todo rethink
+        return execute(updateStickyLocation(stickyLocationUpdate),
+                1, "update sticky location");
+    }
+
+    @NotNull
+    private static Function<DSLContext, UpdateConditionStep<Record>> updateStickyLocation(StickyLocation stickyLocationUpdate) {
+        return c -> c.update(STICKY_LOCATION) //todo rethink
                         .set(STICKY_LOCATION.NAME, stickyLocationUpdate.getName())
                         .set(STICKY_LOCATION.FLOOR_ID, stickyLocationUpdate.getFloorId())
-                        .where(STICKY_LOCATION.LOCATION_ID.eq(stickyLocationUpdate.getId())),
-                1, "update sticky location");
+                        .where(STICKY_LOCATION.LOCATION_ID.eq(stickyLocationUpdate.getId()));
     }
 
     @NotNull
@@ -244,18 +264,6 @@ public final class StickyQueryHandler {
     private static Function<DSLContext, UpdateConditionStep<Record>> deactivateActionsWhere(Condition condition) {
         return c -> c.update(STICKY_ACTION).set(STICKY_ACTION.ACTIVE, false).where(condition);
     }
-
-//    @NotNull
-// public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> activateStickyActionsQ(UUID stickyId) {
-//        return t -> activateActionsWhere(STICKY_ACTION.STICKY_ID.eq(stickyId)).apply(t)
-//                .map(i -> i > 0);
-//    }
-//
-//    @NotNull
-// public static Function<ReactiveClassicGenericQueryExecutor, Future<Boolean>> deactivateStickyActionsQ(UUID stickyId) {
-//        return t -> deactivateActionsWhere(STICKY_ACTION.STICKY_ID.eq(stickyId)).apply(t)
-//                .map(i -> i > 0);
-//    }
 
     @NotNull
     private static Function<DSLContext, UpdateConditionStep<Record>> deactivateStickyLocationsWhere(Condition condition) {
@@ -279,7 +287,7 @@ public final class StickyQueryHandler {
                                 lateral(select(arrayAggDistinct(STICKY_ACTION_ROLE.ROLE_ID).as(roles))
                                         .from(STICKY_ACTION_ROLE)
                                         .where(STICKY_ACTION.ACTION_ID.eq(STICKY_ACTION_ROLE.ACTION_ID))))
-                        .where(STICKY_ACTION.STICKY_ID.eq(stickyId)).and(STICKY_ACTION.ACTIVE.eq(true)),
+                        .where(STICKY_ACTION.STICKY_ID.eq(stickyId)),
                 rowToAction(roles));
     }
 
@@ -292,7 +300,7 @@ public final class StickyQueryHandler {
                                         .from(STICKY_ACTION_ROLE)
                                         .where(STICKY_ACTION.ACTION_ID.eq(STICKY_ACTION_ROLE.ACTION_ID))))
                         .leftJoin(TICKET).on(TICKET.LOCATION_ID.eq(locationId).and(TICKET.ACTION_ID.eq(STICKY_ACTION.ACTION_ID)).and(TICKET.STATE.in(List.of(State.PENDING, State.ACQUIRED))))
-                        .where(STICKY_ACTION.STICKY_ID.eq(stickyId)).and(STICKY_ACTION.ACTIVE.eq(true)),
+                        .where(STICKY_ACTION.STICKY_ID.eq(stickyId)),
                 rowToAction(roles));
     }
 
@@ -307,11 +315,16 @@ public final class StickyQueryHandler {
 
     @NotNull
     private static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> addStickyActionsTQ(List<Action> actions) {
-        return execute(c -> {
+        return execute(addStickyActionsT(actions), actions.size(), "insert actions");
+    }
+
+    @NotNull
+    private static Function<DSLContext, Query> addStickyActionsT(List<Action> actions) {
+        return c -> {
             final var insert = c.insertInto(STICKY_ACTION, STICKY_ACTION.ACTION_ID, STICKY_ACTION.STICKY_ID, STICKY_ACTION.NAME, STICKY_ACTION.DESCRIPTION);
-            actions.forEach(action -> insert.values(action.getId(), action.getStickyId(), action.getName(), action.getDescription()));
+            actions.forEach(action -> insert.values(action.getId(), action.getStickyId(), action.getName(), action.getDescription().orElse(null)));
             return insert;
-        }, actions.size(), "insert actions");
+        };
     }
 
     @NotNull
@@ -320,13 +333,31 @@ public final class StickyQueryHandler {
             return t -> succeededFuture();
         }
         final var actionsRoles = actions.stream()
-                .flatMap(action -> action.getRoles().stream().map(role -> Pair.of(action.getId(), role)))
+                .flatMap(action -> action.getRoles().stream().map(role -> ActionRole.builder()
+                        .actionId(action.getId())
+                        .roleId(role)
+                        .build()))
                 .collect(Collectors.toList());
-        return execute(c -> {
+        return execute(insertActionsRole(actionsRoles), actionsRoles.size(), "insert action's roles");
+    }
+
+    @NotNull
+    private static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> addStickyActionRolesQ(Action action) {
+        final var actionsRole = mapTs((UUID role) -> ActionRole.builder()
+                .actionId(action.getId())
+                .roleId(role)
+                .build()).apply(action.getRoles());
+        return execute(insertActionsRole(actionsRole), actionsRole.size(), "insert action's roles");
+    }
+
+
+    @NotNull
+    private static Function<DSLContext, Query> insertActionsRole(List<ActionRole> actionsRole) {
+        return c -> {
             final var insert = c.insertInto(STICKY_ACTION_ROLE, STICKY_ACTION_ROLE.ACTION_ID, STICKY_ACTION_ROLE.ROLE_ID);
-            actionsRoles.forEach(pair -> insert.values(pair.getLeft(), pair.getRight()));
+            actionsRole.forEach(actionRole -> insert.values(actionRole.getActionId(), actionRole.getRoleId()));
             return insert;
-        }, actionsRoles.size(), "insert action's roles");
+        };
     }
 
 }

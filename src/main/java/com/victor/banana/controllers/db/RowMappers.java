@@ -1,14 +1,17 @@
 package com.victor.banana.controllers.db;
 
 import com.victor.banana.jooq.enums.Notification;
+import com.victor.banana.jooq.enums.RoomType;
 import com.victor.banana.jooq.enums.State;
 import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.desk.Desk;
 import com.victor.banana.models.events.locations.Building;
 import com.victor.banana.models.events.locations.Company;
 import com.victor.banana.models.events.locations.Floor;
 import com.victor.banana.models.events.locations.StickyLocation;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
 import com.victor.banana.models.events.personnel.Personnel;
+import com.victor.banana.models.events.room.Room;
 import com.victor.banana.models.events.stickies.Action;
 import com.victor.banana.models.events.stickies.ActionState;
 import com.victor.banana.models.events.stickies.StickyAction;
@@ -74,6 +77,28 @@ public final class RowMappers {
     }
 
     @NotNull
+    public static Function<Row, Desk> rowToDesk() {
+        return r -> Desk.builder()
+                .id(r.getUUID(DESK.DESK_ID.getName()))
+                .name(r.getString(DESK.NAME.getName()))
+                .floorId(r.getUUID(DESK.FLOOR_ID.getName()))
+                .active(r.getBoolean(DESK.ACTIVE.getName()))
+                .build();
+    }
+
+    @NotNull
+    public static Function<Row, Room> rowToRoom() {
+        return r -> Room.builder()
+                .id(r.getUUID(ROOM.ROOM_ID.getName()))
+                .name(r.getString(ROOM.NAME.getName()))
+                .floorId(r.getUUID(ROOM.FLOOR_ID.getName()))
+                .roomType(roomTypeDbToRoomType(RoomType.valueOf(r.getString(ROOM.ROOM_TYPE.getName()))))
+                .capacity(r.getInteger(ROOM.CAPACITY.getName()))
+                .active(r.getBoolean(ROOM.ACTIVE.getName()))
+                .build();
+    }
+
+    @NotNull
     public static Function<Row, Ticket> rowToTicket() {
         return r -> Ticket.builder()
                 .id(r.getUUID(TICKET.TICKET_ID.getName()))
@@ -129,7 +154,7 @@ public final class RowMappers {
                 .stickyId(r.getUUID(STICKY_ACTION.STICKY_ID.getName()))
                 .roles(Arrays.asList(r.getUUIDArray(roles.getName())))
                 .name(r.getString(STICKY_ACTION.NAME.getName()))
-                .description(r.getString(STICKY_ACTION.DESCRIPTION.getName()))
+                .description(Optional.ofNullable(r.getString(STICKY_ACTION.DESCRIPTION.getName())))
                 .active(r.getBoolean(STICKY_ACTION.ACTIVE.getName()))
                 .state(Optional.ofNullable(r.getUUID(TICKET.TICKET_ID.getName())).map(ignore -> ActionState.IN_PROGRESS).orElse(ActionState.AVAILABLE))
                 .build();
@@ -158,6 +183,13 @@ public final class RowMappers {
                 .build();
     }
 
+    @NotNull
+    public static Notification notificationTypeToNotification(NotificationType ts) {
+        return switch (ts) {
+            case FOLLOWING -> Notification.FOLLOWING;
+            case CREATED_BY -> Notification.CREATED_BY;
+        };
+    }
 
     @NotNull
     public static State ticketStateToState(TicketState ts) {
@@ -165,14 +197,6 @@ public final class RowMappers {
             case SOLVED -> State.SOLVED;
             case ACQUIRED -> State.ACQUIRED;
             case PENDING -> State.PENDING;
-        };
-    }
-
-    @NotNull
-    public static Notification notificationTypeToNotification(NotificationType ts) {
-        return switch (ts) {
-            case FOLLOWING -> Notification.FOLLOWING;
-            case CREATED_BY -> Notification.CREATED_BY;
         };
     }
 
@@ -185,4 +209,19 @@ public final class RowMappers {
         };
     }
 
+    @NotNull
+    public static RoomType roomTypeToDbRoomType(com.victor.banana.models.events.room.RoomType ts) {
+        return switch (ts) {
+            case CONFERENCE_ROOM -> RoomType.CONFERENCE_ROOM;
+            case HUB -> RoomType.HUB;
+        };
+    }
+
+    @NotNull
+    public static com.victor.banana.models.events.room.RoomType roomTypeDbToRoomType(RoomType ts) {
+        return switch (ts) {
+            case CONFERENCE_ROOM -> com.victor.banana.models.events.room.RoomType.CONFERENCE_ROOM;
+            case HUB -> com.victor.banana.models.events.room.RoomType.HUB;
+        };
+    }
 }

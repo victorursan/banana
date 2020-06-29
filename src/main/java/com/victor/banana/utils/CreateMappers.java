@@ -3,15 +3,16 @@ package com.victor.banana.utils;
 
 import com.victor.banana.actions.TicketAction;
 import com.victor.banana.models.events.*;
+import com.victor.banana.models.events.desk.*;
 import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.messages.*;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.UpdatePersonnel;
+import com.victor.banana.models.events.room.*;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.NotificationType;
 import com.victor.banana.models.events.tickets.TicketNotification;
 import com.victor.banana.models.events.tickets.TicketState;
-import com.victor.banana.models.requests.TelegramLoginDataReq;
 import org.apache.commons.text.StringEscapeUtils;
 import org.jetbrains.annotations.NotNull;
 
@@ -101,6 +102,7 @@ public final class CreateMappers {
                                 .stickyId(stickyId)
                                 .roles(au.getRoles().stream().map(Constants.PersonnelRole::getUuid).collect(toList()))
                                 .name(au.getAction().orElse(a.getName()))
+                                .description(au.getDescription().or(a::getDescription))
                                 .build())
         ).collect(toList());
     }
@@ -257,7 +259,7 @@ public final class CreateMappers {
             final var stickyId = UUID.randomUUID();
             return Sticky.builder()
                     .id(stickyId)
-                    .title(createSticky.getMessage())
+                    .title(createSticky.getTitle())
                     .active(true)
                     .actions(mapTs(createActionToAction(stickyId)).apply(createSticky.getActions()))
                     .stickyLocations(mapTs(createStickyLocationToStickyLocation(stickyId)).apply(createSticky.getLocations()))
@@ -277,12 +279,56 @@ public final class CreateMappers {
     }
 
     @NotNull
+    public static Function<CreateDesk, Desk> createDeskToDesk() {
+        return createDesk -> Desk.builder()
+                .id(UUID.randomUUID())
+                .name(createDesk.getName())
+                .floorId(createDesk.getFloorId())
+                .active(true)
+                .build();
+    }
+//
+//    @NotNull
+//    public static Function<CreateDeskBooking, DeskBooking> createDeskBookingToDeskBooking() {
+//        return createDesk -> DeskBooking.builder()
+//                .id(UUID.randomUUID())
+//                .bookedBy(createDesk.getBookedBy())
+//                .bookingDate(createDesk.getBookingDate())
+//                .deskId(createDesk.getDeskId())
+//                .build();
+//    }
+
+
+    @NotNull
+    public static Function<CreateRoom, Room> createRoomToRoom() {
+        return createRoom -> Room.builder()
+                .id(UUID.randomUUID())
+                .name(createRoom.getName())
+                .floorId(createRoom.getFloorId())
+                .roomType(createRoom.getRoomType())
+                .capacity(createRoom.getCapacity())
+                .active(true)
+                .build();
+    }
+
+//    @NotNull
+//    public static Function<CreateRoomBooking, RoomBooking> createRoomBookingToRoomBooking() {
+//        return createRoom -> RoomBooking.builder()
+//                .id(UUID.randomUUID())
+//                .bookedBy(createDesk.getBookedBy())
+//                .bookingDate(createDesk.getBookingDate())
+//                .deskId(createDesk.getDeskId())
+//                .build();
+//    }
+
+    @NotNull
     public static Function<CreateAction, Action> createActionToAction(UUID stickyId) {
         return action -> Action.builder()
                 .id(UUID.randomUUID())
                 .stickyId(stickyId)
                 .roles(action.getRoles())
-                .name(action.getMessage())
+                .name(action.getName())
+                .description(action.getDescription())
                 .active(true)
                 .build();
     }

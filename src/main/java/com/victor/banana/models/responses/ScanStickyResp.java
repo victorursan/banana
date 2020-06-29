@@ -16,7 +16,7 @@ public class ScanStickyResp {
     @NotNull
     private UUID locationId;
     @NotNull
-    private String message;
+    private String title;
     @Builder.Default
     private List<ActionStickyResp> actions = List.of();
 }

@@ -77,7 +77,11 @@ public final class Constants {
         @NotNull
         public static final String TELEGRAM_BOT = "eventbuss.service.telegram.bot";
         @NotNull
-        public static final String CARTCHUFI_ENGINE = "eventbuss.service.cartchufi.engine";
+        public static final String BOOKING = "eventbuss.service.booking";
+        @NotNull
+        public static final String PERSONNEL = "eventbuss.service.personnel";
+        @NotNull
+        public static final String TICKETING = "eventbuss.service.ticketing";
     }
 
     public static class DeliveryOptionsConstants {

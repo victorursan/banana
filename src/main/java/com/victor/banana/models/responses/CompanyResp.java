@@ -15,4 +15,6 @@ public class CompanyResp {
     private UUID id;
     @NotNull
     private String name;
+    @NotNull
+    private Boolean active;
 }

@@ -17,6 +17,8 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @EqualsAndHashCode
 @DataObject
 public class TicketFilter {
+    @NotNull
+    private UUID buildingId;
     @Builder.Default
     private Optional<UUID> forUser = Optional.empty();
 

@@ -17,7 +17,7 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @DataObject
 public class UpdateSticky {
     @Builder.Default
-    private Optional<String> message = Optional.empty();
+    private Optional<String> title = Optional.empty();
     @Builder.Default
     private Optional<Boolean> active = Optional.empty();
     @Builder.Default

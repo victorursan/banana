@@ -14,7 +14,9 @@ public class StickyResp {
     @NotNull
     private UUID id;
     @NotNull
-    private String message;
+    private String title;
+    @NotNull
+    private Boolean active;
     @Builder.Default
     private List<ActionStickyResp> actions = List.of();
     @Builder.Default

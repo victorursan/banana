@@ -12,8 +12,8 @@ import java.util.Optional;
 @ToString
 @EqualsAndHashCode
 public class UpdateStickyReq {
-    private Optional<String> message = Optional.empty();
+    private Optional<String> title = Optional.empty();
     private Optional<Boolean> active = Optional.empty();
-    private Optional<StickyUpdatesReq<ActionStickyReq, ActionUpdateReq>> actions = Optional.empty();
+    private Optional<StickyUpdatesReq<AddActionStickyReq, ActionUpdateReq>> actions = Optional.empty();
     private Optional<StickyUpdatesReq<AddStickyLocationReq, StickyLocationUpdateReq>> locations = Optional.empty();
 }

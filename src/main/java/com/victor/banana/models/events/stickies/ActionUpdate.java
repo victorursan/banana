@@ -24,6 +24,8 @@ public class ActionUpdate {
     @Builder.Default
     private Optional<String> action = Optional.empty();
     @Builder.Default
+    private Optional<String> description = Optional.empty();
+    @Builder.Default
     private List<PersonnelRole> roles = List.of();
 
     public ActionUpdate(JsonObject jsonObject) {

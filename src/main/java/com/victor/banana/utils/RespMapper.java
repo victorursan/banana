@@ -1,8 +1,11 @@
 package com.victor.banana.utils;
 
 import com.victor.banana.models.events.UserProfile;
+import com.victor.banana.models.events.desk.Desk;
 import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.personnel.Personnel;
+import com.victor.banana.models.events.room.Room;
+import com.victor.banana.models.events.room.RoomType;
 import com.victor.banana.models.events.stickies.Action;
 import com.victor.banana.models.events.stickies.ActionState;
 import com.victor.banana.models.events.stickies.ScanSticky;
@@ -26,6 +29,8 @@ public final class RespMapper {
                 .building(buildingSerializer().apply(l.getBuilding()))
                 .floors(mapTs(floorSerializer()).apply(l.getFloors()))
                 .stickyLocations(mapTs(stickyLocationSerializer()).apply(l.getStickyLocations()))
+                .rooms(mapTs(roomSerializer()).apply(l.getRooms()))
+                .desks(mapTs(deskSerializer()).apply(l.getDesks()))
                 .build();
     }
 
@@ -59,6 +64,7 @@ public final class RespMapper {
         return l -> CompanyResp.builder()
                 .id(l.getId())
                 .name(l.getName())
+                .active(l.getActive())
                 .build();
     }
 
@@ -75,6 +81,26 @@ public final class RespMapper {
                 .name(l.getName())
                 .floorId(l.getFloorId())
                 .stickyId(l.getStickyId())
+                .active(l.getActive())
+                .build();
+    }
+
+    public static Function<Room, RoomResp> roomSerializer() {
+        return l -> RoomResp.builder()
+                .id(l.getId())
+                .name(l.getName())
+                .floorId(l.getFloorId())
+                .roomType(roomTypeSerializer(l.getRoomType()))
+                .capacity(l.getCapacity())
+                .active(l.getActive())
+                .build();
+    }
+
+    public static Function<Desk, DeskResp> deskSerializer() {
+        return l -> DeskResp.builder()
+                .id(l.getId())
+                .name(l.getName())
+                .floorId(l.getFloorId())
                 .active(l.getActive())
                 .build();
     }
@@ -122,7 +148,7 @@ public final class RespMapper {
     public static Function<ScanSticky, ScanStickyResp> scanStickySerializer() {
         return s -> ScanStickyResp.builder()
                 .id(s.getId())
-                .message(s.getMessage())
+                .title(s.getTitle())
                 .actions(mapTs(actionStickySerializer()).apply(s.getActions()))
                 .locationId(s.getLocationId())
                 .build();
@@ -132,7 +158,8 @@ public final class RespMapper {
         return a -> ActionStickyResp.builder()
                 .id(a.getId())
                 .roles(a.getRoles())
-                .message(a.getName())
+                .name(a.getName())
+                .description(a.getDescription())
                 .state(actionStateSerializer(a.getState()))
                 .build();
     }
@@ -140,7 +167,8 @@ public final class RespMapper {
     public static Function<Sticky, StickyResp> stickySerializer() {
         return sticky -> StickyResp.builder()
                 .id(sticky.getId())
-                .message(sticky.getTitle())
+                .title(sticky.getTitle())
+                .active(sticky.getActive())
                 .actions(mapTs(actionStickySerializer()).apply(sticky.getActions()))
                 .locations(mapTs(stickyLocationSerializer()).apply(sticky.getStickyLocations()))
                 .build();
@@ -170,6 +198,13 @@ public final class RespMapper {
         return switch (actionState) {
             case AVAILABLE -> "available";
             case IN_PROGRESS -> "in_progress";
+        };
+    }
+
+    public static String roomTypeSerializer(RoomType roomType) {
+        return switch (roomType) {
+            case CONFERENCE_ROOM -> "conference_room";
+            case HUB -> "hub";
         };
     }
 }

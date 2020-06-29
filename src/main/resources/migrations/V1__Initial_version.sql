@@ -34,21 +34,6 @@ CREATE TABLE floor (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
---
---CREATE TABLE location (
---    location_id UUID NOT NULL PRIMARY KEY,
---    floor_id UUID NOT NULL REFERENCES floor(floor_id),
---    name TEXT NOT NULL,
---    active BOOLEAN NOT NULL DEFAULT true,
---    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
---    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
---);
-
---
---create table location_desk partition of location for values in ('DESK');
---create table location_hub partition of location for values in ('HUB');
---create table location_conference_room partition of location for values in ('CONFERENCE ROOM');
---create table location_sticky partition of location for values in ('STICKY');
 
 CREATE TABLE sticky_location (
     location_id UUID NOT NULL PRIMARY KEY,
@@ -59,6 +44,29 @@ CREATE TABLE sticky_location (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
 );
+
+CREATE TABLE desk (
+    desk_id UUID NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    floor_id UUID NOT NULL REFERENCES floor(floor_id),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TYPE ROOM_TYPE AS ENUM ('CONFERENCE ROOM', 'HUB');
+
+CREATE TABLE room (
+    room_id UUID NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    room_type ROOM_TYPE NOT NULL,
+    floor_id UUID NOT NULL REFERENCES floor(floor_id),
+    capacity INTEGER NOT NULL CHECK (capacity > 0),
+    active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
 
 CREATE TABLE role (
     role_id UUID NOT NULL PRIMARY KEY,
@@ -109,7 +117,7 @@ CREATE TABLE sticky_action (
     action_id UUID NOT NULL PRIMARY KEY,
     sticky_id UUID NOT NULL REFERENCES sticky(sticky_id),
     name TEXT NOT NULL,
-    description TEXT NOT NULL,
+    description TEXT,
     active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
@@ -158,6 +166,27 @@ CREATE TABLE chat_ticket_message (
     PRIMARY KEY(message_id, chat_id)
 );
 
+CREATE TABLE desk_booking (
+    desk_booking_id UUID NOT NULL PRIMARY KEY,
+    desk_id UUID NOT NULL REFERENCES desk(desk_id),
+    booked_by UUID NOT NULL REFERENCES personnel(personnel_id),
+    booking_date DATE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
+CREATE TABLE room_booking (
+    room_booking_id UUID NOT NULL PRIMARY KEY,
+    room_id UUID NOT NULL REFERENCES room(room_id),
+    booked_by UUID NOT NULL REFERENCES personnel(personnel_id),
+    booking_date DATE NOT NULL,
+    from_time TIME NOT NULL,
+    to_time TIME NOT NULL,
+    requested_capacity INTEGER NOT NULL CHECK (requested_capacity > 0),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT current_timestamp
+);
+
 CREATE OR REPLACE FUNCTION trigger_set_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -202,7 +231,27 @@ FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 
 CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON room
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON desk
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON sticky_location
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON desk_booking
+FOR EACH ROW
+EXECUTE PROCEDURE trigger_set_timestamp();
+
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON room_booking
 FOR EACH ROW
 EXECUTE PROCEDURE trigger_set_timestamp();
 

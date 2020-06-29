@@ -1,11 +1,7 @@
 package com.victor.banana.services.impl;
 
-import com.victor.banana.models.events.TelegramLoginData;
 import com.victor.banana.models.events.UserProfile;
-import com.victor.banana.models.events.locations.BuildingFloors;
-import com.victor.banana.models.events.locations.BuildingLocations;
-import com.victor.banana.models.events.locations.Company;
-import com.victor.banana.models.events.locations.FloorLocations;
+import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
 import com.victor.banana.models.events.stickies.ScanSticky;
@@ -15,7 +11,8 @@ import com.victor.banana.models.events.tickets.TicketFilter;
 import com.victor.banana.models.requests.*;
 import com.victor.banana.models.responses.TicketResp;
 import com.victor.banana.services.APIService;
-import com.victor.banana.services.CartchufiService;
+import com.victor.banana.services.PersonnelService;
+import com.victor.banana.services.TicketingService;
 import com.victor.banana.utils.Constants.PersonnelRole;
 import com.victor.banana.utils.SecurityUtils;
 import com.victor.banana.utils.SecurityUtils.Authority;
@@ -30,18 +27,18 @@ import io.vertx.ext.web.api.contract.openapi3.OpenAPI3RouterFactory;
 
 import java.util.*;
 
-import static com.victor.banana.utils.MappersHelper.mapTsF;
-import static com.victor.banana.utils.MappersHelper.mapperToFuture;
+import static com.victor.banana.utils.MappersHelper.*;
 import static com.victor.banana.utils.ReqMapper.*;
 import static com.victor.banana.utils.RespMapper.*;
 import static com.victor.banana.utils.SecurityUtils.Authority.*;
 
-public class APIServiceImpl implements APIService {
-    private static final Logger log = LoggerFactory.getLogger(APIServiceImpl.class);
-    private final CartchufiService cartchufiService;
+public class TicketingAPIService extends APIService {
+    private static final Logger log = LoggerFactory.getLogger(TicketingAPIService.class);
+    private final TicketingService ticketingService;
 
-    public APIServiceImpl(CartchufiService cartchufiService) {
-        this.cartchufiService = cartchufiService;
+    public TicketingAPIService(TicketingService ticketingService, PersonnelService personnelService) {
+        super(personnelService);
+        this.ticketingService = ticketingService;
     }
 
     @Override
@@ -51,6 +48,8 @@ public class APIServiceImpl implements APIService {
             //locations
             routerFactory.addHandlerByOperationId("getBuildingsForCompany", this::getBuildingsForCompany)
                     .addHandlerByOperationId("getFloorLocations", this::getFloorForBuilding)
+                    .addHandlerByOperationId("getFloors", this::getFloors)
+                    .addHandlerByOperationId("getBuildings", this::getBuildings)
                     .addHandlerByOperationId("addCompany", this::addCompany)
                     .addHandlerByOperationId("addBuildingFloors", this::addBuildingFloors);
 
@@ -89,7 +88,7 @@ public class APIServiceImpl implements APIService {
         isUserAuthorized(rc, ADMIN, personnel -> {
             final var addCompanyReq = rc.getBodyAsJson().mapTo(AddCompanyReq.class);
             final var createCompany = createCompanyDeserializer().apply(addCompanyReq);
-            Future.<Company>future(r -> cartchufiService.createCompany(createCompany, r))
+            Future.<Company>future(r -> personnelService.createCompany(createCompany, r))
                     .flatMap(mapperToFuture(companyBuildingSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
@@ -100,9 +99,9 @@ public class APIServiceImpl implements APIService {
         isUserAuthorized(rc, ADMIN, personnel -> {
             final var addBuildingFloorsReq = rc.getBodyAsJson().mapTo(AddBuildingFloorsReq.class);
             final var createBuildingFloors = createBuildingFloorsDeserializer().apply(addBuildingFloorsReq);
-            Future.<BuildingFloors>future(r -> cartchufiService.createBuildingFloors(createBuildingFloors, r))
+            Future.<BuildingFloors>future(r -> personnelService.createBuildingFloors(createBuildingFloors, r))
                     .flatMap(mapperToFuture(buildingFloorsSerializer()))
-                    .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                    .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
     }
@@ -110,7 +109,7 @@ public class APIServiceImpl implements APIService {
     private void getBuildingsForCompany(RoutingContext rc) {
         isUserAuthorized(rc, COMMUNITY, personnel -> {
                     final var companyId = rc.request().getParam("companyId");
-                    Future.<BuildingLocations>future(r -> cartchufiService.getBuildingsForCompany(UUID.fromString(companyId).toString(), r))
+                    Future.<BuildingLocations>future(r -> personnelService.getBuildingsForCompany(UUID.fromString(companyId).toString(), r))
                             .flatMap(mapperToFuture(buildingLocationsSerializer()))
                             .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                             .onFailure(failureHandler(rc, 500));
@@ -120,10 +119,43 @@ public class APIServiceImpl implements APIService {
 
     private void getFloorForBuilding(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel ->
-                Future.<FloorLocations>future(r -> cartchufiService.getFloorLocations(personnel.getBuildingId().toString(), r))
-                        .flatMap(mapperToFuture(floorLocationsSerializer()))
-                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
-                        .onFailure(failureHandler(rc, 500))
+                personnel.getBuildingId().ifPresentOrElse(buildingId ->
+                                Future.<FloorLocations>future(r -> personnelService.getFloorLocations(buildingId.toString(), r))
+                                        .flatMap(mapperToFuture(floorLocationsSerializer()))
+                                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                                        .onFailure(failureHandler(rc, 500)), () -> {
+                            log.error("User doesn't have a building");
+                            rc.response().setStatusCode(404).end("User is missing the building.");
+                        }
+                )
+        );
+    }
+
+    private void getFloors(RoutingContext rc) {
+        isUserAuthorized(rc, MEMBER, personnel ->
+                personnel.getBuildingId().ifPresentOrElse(buildingId ->
+                                Future.<List<Floor>>future(r -> personnelService.getFloors(buildingId.toString(), r))
+                                        .flatMap(mapTsF(floorSerializer()))
+                                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                                        .onFailure(failureHandler(rc, 500))
+                        , () -> {
+                            log.error("User doesn't have a building");
+                            rc.response().setStatusCode(404).end("User is missing the building.");
+                        })
+        );
+    }
+
+    private void getBuildings(RoutingContext rc) {
+        isUserAuthorized(rc, MEMBER, personnel ->
+                personnel.getBuildingId().ifPresentOrElse(buildingId ->
+                                Future.<List<Building>>future(r -> personnelService.getBuildings(buildingId.toString(), r))
+                                        .flatMap(mapTsF(buildingSerializer()))
+                                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                                        .onFailure(failureHandler(rc, 500))
+                        , () -> {
+                            log.error("User doesn't have a building");
+                            rc.response().setStatusCode(404).end("User is missing the building.");
+                        })
         );
     }
 
@@ -133,8 +165,8 @@ public class APIServiceImpl implements APIService {
         isUserAuthorized(rc, COMMUNITY, personnel -> {
             final var telegramReq = rc.getBodyAsJson().mapTo(TelegramLoginDataReq.class);
             final var telegramLogin = telegramLoginDataDeserializer(personnel).apply(telegramReq);
-            Future.<UserProfile>future(f -> cartchufiService.addTelegramToUserProfile(telegramLogin, f))
-                    .map(userProfileSerializer())
+            Future.<UserProfile>future(f -> personnelService.addTelegramToUserProfile(telegramLogin, f))
+                    .flatMap(mapperToFuture(userProfileSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
@@ -142,7 +174,7 @@ public class APIServiceImpl implements APIService {
 
     private void deleteUserProfile(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
-            Future.<Void>future(f -> cartchufiService.deletePersonnel(personnel.getId().toString(), f))
+            Future.<Void>future(f -> personnelService.deletePersonnel(personnel.getId().toString(), f))
                     .onSuccess(res -> rc.response().setStatusCode(204).end())
                     .onFailure(failureHandler(rc, 500));
         });
@@ -150,8 +182,8 @@ public class APIServiceImpl implements APIService {
 
     private void getProfile(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
-            Future.<UserProfile>future(f -> cartchufiService.getUserProfile(personnel, f))
-                    .map(userProfileSerializer())
+            Future.<UserProfile>future(f -> personnelService.getUserProfile(personnel, f))
+                    .flatMap(mapperToFuture(userProfileSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
@@ -161,8 +193,8 @@ public class APIServiceImpl implements APIService {
     private void getTicket(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
             final var ticketId = rc.request().getParam("ticketId");
-            Future.<Ticket>future(f -> cartchufiService.getTicket(ticketId, f))
-                    .map(ticketSerializer())
+            Future.<Ticket>future(f -> ticketingService.getTicket(ticketId, f))
+                    .flatMap(mapperToFuture(ticketSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
@@ -174,9 +206,9 @@ public class APIServiceImpl implements APIService {
             final var updateTicketReq = rc.getBodyAsJson().mapTo(UpdateTicketReq.class);
             Future.<Ticket>future(f -> {
                 final var updateTicketState = updateTicketStateDeserializer(personnel).apply(updateTicketReq);
-                cartchufiService.updateTicketState(UUID.fromString(ticketId).toString(), updateTicketState, f);
+                ticketingService.updateTicketState(UUID.fromString(ticketId).toString(), updateTicketState, f);
             })
-                    .map(ticketSerializer())
+                    .flatMap(mapperToFuture(ticketSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
@@ -184,31 +216,36 @@ public class APIServiceImpl implements APIService {
 
     private void getTickets(RoutingContext rc) {
         final var isUser = !rc.queryParam("user").isEmpty() && Boolean.parseBoolean(rc.queryParam("user").get(0));
-        isUserAuthorized(rc, isUser ? MEMBER : COMMUNITY, personnel ->
-                Future.<List<Ticket>>future(f ->
-                        cartchufiService.getTickets(TicketFilter.builder().forUser(isUser ? Optional.of(personnel.getId()) : Optional.empty()).build(), f))
-                        .flatMap(mapTsF(ticketSerializer(!isUser), Comparator.comparing(TicketResp::getCreatedAt).reversed()))
-                        .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
-                        .onFailure(failureHandler(rc, 500)));
+        isUserAuthorized(rc, isUser ? MEMBER : COMMUNITY, personnel -> {
+            final var buildingId = personnel.getBuildingId().orElseThrow(); //todo
+            Future.<List<Ticket>>future(f ->
+                    ticketingService.getTickets(TicketFilter.builder()
+                                    .buildingId(buildingId)
+                                    .forUser(isUser ? Optional.of(personnel.getId()) : Optional.empty())
+                                    .build(),
+                            f))
+                    .flatMap(mapTsF(ticketSerializer(!isUser), Comparator.comparing(TicketResp::getCreatedAt).reversed()))
+                    .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
+                    .onFailure(failureHandler(rc, 500));
+        });
     }
 
     private void actionSelected(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
             final var actionSelectedReq = rc.getBodyAsJson().mapTo(ActionSelectedReq.class);
             final var actionSelected = actionSelectedDeserializer().apply(actionSelectedReq);
-            Future.<Ticket>future(t -> cartchufiService.actionSelected(personnel, actionSelected, t))
-                    .map(ticketSerializer())
+            Future.<Ticket>future(t -> ticketingService.actionSelected(personnel, actionSelected, t))
+                    .flatMap(mapperToFuture(ticketSerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 400));
         });
     }
 
-
     //roles
     private void getRoles(RoutingContext rc) {
         isUserAuthorized(rc, COMMUNITY, personnel -> {
-            final var roles = Arrays.stream(PersonnelRole.values())
-                    .map(roleSerializer());
+            final var roles = mapTs(roleSerializer())
+                    .apply(Arrays.asList(PersonnelRole.values()));
             rc.response().setStatusCode(200).end(Json.encodeToBuffer(roles));
         });
     }
@@ -219,8 +256,9 @@ public class APIServiceImpl implements APIService {
             final var stickyReq = rc.getBodyAsJson().mapTo(AddStickyReq.class);
             Future.<Sticky>future(c -> {
                 final var createSticky = createStickyDeserializer().apply(stickyReq);
-                cartchufiService.createSticky(createSticky, c);
-            }).map(stickySerializer())
+                ticketingService.createSticky(createSticky, c);
+            })
+                    .flatMap(mapperToFuture(stickySerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 400));
         });
@@ -229,8 +267,8 @@ public class APIServiceImpl implements APIService {
     private void scanSticky(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
             final var stickyLocationId = rc.request().getParam("stickyLocationId");
-            Future.<ScanSticky>future(c -> cartchufiService.getScanSticky(stickyLocationId, c))
-                    .map(scanStickySerializer())
+            Future.<ScanSticky>future(c -> ticketingService.getScanSticky(stickyLocationId, c))
+                    .flatMap(mapperToFuture(scanStickySerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(201).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 400));
         });
@@ -238,7 +276,7 @@ public class APIServiceImpl implements APIService {
 
     private void getStickies(RoutingContext rc) {
         isUserAuthorized(rc, COMMUNITY, personnel ->
-                Future.future(cartchufiService::getStickies)
+                Future.future(ticketingService::getStickies)
                         .flatMap(mapTsF(stickySerializer()))
                         .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                         .onFailure(failureHandler(rc, 400)));
@@ -247,8 +285,8 @@ public class APIServiceImpl implements APIService {
     private void getSticky(RoutingContext rc) {
         isUserAuthorized(rc, COMMUNITY, personnel -> {
             final var stickyId = rc.request().getParam("stickyId");
-            Future.<Sticky>future(f -> cartchufiService.getSticky(stickyId, f))
-                    .map(stickySerializer())
+            Future.<Sticky>future(f -> ticketingService.getSticky(stickyId, f))
+                    .flatMap(mapperToFuture(stickySerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 400));
         });
@@ -259,8 +297,8 @@ public class APIServiceImpl implements APIService {
             final var stickyId = rc.request().getParam("stickyId");
             final var stickyReq = rc.getBodyAsJson().mapTo(UpdateStickyReq.class);
             final var stickyUpdate = updateStickyDeserializer().apply(stickyReq);
-            Future.<Sticky>future(f -> cartchufiService.updateSticky(UUID.fromString(stickyId).toString(), stickyUpdate, f))
-                    .map(stickySerializer())
+            Future.<Sticky>future(f -> ticketingService.updateSticky(UUID.fromString(stickyId).toString(), stickyUpdate, f))
+                    .flatMap(mapperToFuture(stickySerializer()))
                     .onSuccess(res -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(res)))
                     .onFailure(failureHandler(rc, 500));
         });
@@ -270,8 +308,8 @@ public class APIServiceImpl implements APIService {
     private void getPersonnel(RoutingContext rc) {
         isUserAuthorized(rc, MEMBER, personnel -> {
             final var personnelId = rc.request().getParam("personnelId");
-            Future.<Personnel>future(f -> cartchufiService.getPersonnel(personnelId, f))
-                    .map(personnelSerializer())
+            Future.<Personnel>future(f -> personnelService.getPersonnel(personnelId, f))
+                    .flatMap(mapperToFuture(personnelSerializer()))
                     .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                     .onFailure(failureHandler(rc, 400));
         });
@@ -287,7 +325,7 @@ public class APIServiceImpl implements APIService {
                 personnelFilter.username(Optional.of(rc.queryParam("username").get(0)));
             }
 
-            Future.<List<Personnel>>future(f -> cartchufiService.findPersonnel(personnelFilter.build(), f))
+            Future.<List<Personnel>>future(f -> personnelService.findPersonnel(personnelFilter.build(), f))
                     .flatMap(mapTsF(personnelSerializer()))
                     .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                     .onFailure(failureHandler(rc, 400));
@@ -299,30 +337,30 @@ public class APIServiceImpl implements APIService {
             final var personnelId = rc.request().getParam("personnelId");
             final var updatePersonnelReq = rc.getBodyAsJson().mapTo(UpdatePersonnelReq.class);
             final var updatePersonnel = updatePersonnelDeserializer().apply(updatePersonnelReq);
-            Future.<Personnel>future(f -> cartchufiService.updatePersonnel(personnelId, updatePersonnel, f))
-                    .map(personnelSerializer())
+            Future.<Personnel>future(f -> personnelService.updatePersonnel(personnelId, updatePersonnel, f))
+                    .flatMap(mapperToFuture(personnelSerializer()))
                     .onSuccess(l -> rc.response().setStatusCode(200).end(Json.encodeToBuffer(l)))
                     .onFailure(failureHandler(rc, 400));
         });
     }
 
-    private void isUserAuthorized(RoutingContext rc, Authority authority, Handler<Personnel> authorizedPersonnel) {
-        SecurityUtils.isUserAuthorized(rc.user(), authority)
-                .onSuccess(tUserOpt ->
-                        tUserOpt.ifPresentOrElse(tUser -> {
-                            Future.<Personnel>future(p -> cartchufiService.getOrElseCreatePersonnel(tUser, p))
-                                    .onSuccess(authorizedPersonnel)
-                                    .onFailure(failureHandler(rc, 500));
-                        }, () -> rc.response().setStatusCode(401).end())
-                )
-                .onFailure(failureHandler(rc, 500));
-    }
-
-    private Handler<Throwable> failureHandler(RoutingContext rc, int i) {
-        return t -> {
-            log.error(t.getMessage(), t);
-            rc.response().setStatusCode(i).end(t.getMessage());
-        };
-    }
+//    private void isUserAuthorized(RoutingContext rc, Authority authority, Handler<Personnel> authorizedPersonnel) {
+//        SecurityUtils.isUserAuthorized(rc.user(), authority)
+//                .onSuccess(tUserOpt ->
+//                        tUserOpt.ifPresentOrElse(tUser -> {
+//                            Future.<Personnel>future(p -> ticketingService.getOrElseCreatePersonnel(tUser, p))
+//                                    .onSuccess(authorizedPersonnel)
+//                                    .onFailure(failureHandler(rc, 500));
+//                        }, () -> rc.response().setStatusCode(401).end())
+//                )
+//                .onFailure(failureHandler(rc, 500));
+//    }
+//
+//    private Handler<Throwable> failureHandler(RoutingContext rc, int i) {
+//        return t -> {
+//            log.error(t.getMessage(), t);
+//            rc.response().setStatusCode(i).end(t.getMessage());
+//        };
+//    }
 
 }

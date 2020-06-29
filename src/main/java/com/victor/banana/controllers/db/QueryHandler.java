@@ -8,13 +8,12 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.serviceproxy.ServiceException;
 import io.vertx.sqlclient.Row;
 import org.jetbrains.annotations.NotNull;
-import org.jooq.DSLContext;
-import org.jooq.Query;
+import org.jooq.*;
 import org.jooq.Record;
-import org.jooq.ResultQuery;
 
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.victor.banana.utils.ExceptionUtils.failedDbExecution;
 import static com.victor.banana.utils.MappersHelper.mapTsF;
@@ -55,8 +54,13 @@ public final class QueryHandler<T extends ReactiveClassicGenericQueryExecutor> {
 
     @NotNull
     public static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> execute(Function<DSLContext, ? extends Query> queryFunction, int expectedCount, String executedAction) {
+        return execute(queryFunction, i -> i == expectedCount, executedAction);
+    }
+
+    @NotNull
+    public static Function<ReactiveClassicGenericQueryExecutor, Future<Void>> execute(Function<DSLContext, ? extends Query> queryFunction, Predicate<Integer> condition, String executedAction) {
         return t -> t.execute(queryFunction)
-                .flatMap(checkExecution(expectedCount, executedAction));
+                .flatMap(checkExecution(condition, executedAction));
     }
 
     @NotNull
@@ -72,9 +76,21 @@ public final class QueryHandler<T extends ReactiveClassicGenericQueryExecutor> {
     }
 
     @NotNull
-    private static Function<Integer, Future<Void>> checkExecution(int expectedCount, String executedAction) {
+    public static <R extends Record> Function<DSLContext, ResultQuery<R>> selectWhere(
+            Function<DSLContext, SelectJoinStep<R>> select,
+            Condition condition) {
+        return select.andThen(whereCondition(condition));
+    }
+
+    @NotNull
+    private static <R extends Record> Function<SelectJoinStep<R>, SelectConditionStep<R>> whereCondition(Condition condition) {
+        return s -> s.where(condition);
+    }
+
+    @NotNull
+    private static Function<Integer, Future<Void>> checkExecution(Predicate<Integer> condition, String executedAction) {
         return i -> {
-            if (i == expectedCount) {
+            if (condition.test(i)) {
                 return succeededFuture();
             }
             return failedDbExecution(executedAction);

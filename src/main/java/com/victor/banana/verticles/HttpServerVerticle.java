@@ -1,7 +1,11 @@
 package com.victor.banana.verticles;
 
-import com.victor.banana.services.CartchufiService;
-import com.victor.banana.services.impl.APIServiceImpl;
+import com.victor.banana.services.BookingService;
+import com.victor.banana.services.PersonnelService;
+import com.victor.banana.services.TicketingService;
+import com.victor.banana.services.impl.BookingAPIService;
+import com.victor.banana.services.impl.TicketingAPIService;
+import com.victor.banana.utils.CallbackUtils;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -22,6 +26,7 @@ import io.vertx.ext.web.handler.LoggerHandler;
 import io.vertx.ext.web.handler.OAuth2AuthHandler;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -44,8 +49,12 @@ public class HttpServerVerticle extends AbstractVerticle {
         final var allowedOrigin = config.getString("allowedOrigin");
         final var selfHost = config.getString("selfHost");
 
-        final var cartchufiService = CartchufiService.createProxy(vertx);
-        final var hs = new APIServiceImpl(cartchufiService);
+        final var personnelService = PersonnelService.createProxy(vertx);
+        final var ticketingService = TicketingService.createProxy(vertx);
+        final var bookingService = BookingService.createProxy(vertx);
+
+        final var ticketingApi = new TicketingAPIService(ticketingService, personnelService);
+        final var bookingApi = new BookingAPIService(bookingService, personnelService);
 
         final var allowedHeaders = Set.of(
                 ACCESS_CONTROL_ALLOW_ORIGIN.toString(),
@@ -58,34 +67,74 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         final var clientOptions = new OAuth2ClientOptions(keyCloak);
 
-        hs.routes(Future.future(f -> OpenAPI3RouterFactory.create(vertx, "cartchufi.yaml", f)))
-                .flatMap(subrouter -> {
-                    final var router = Router.router(vertx);
+        final var bookingApiYaml = Future.<OpenAPI3RouterFactory>future(f -> OpenAPI3RouterFactory.create(vertx, "bookingAPI.yaml", f));
+        final var ticketingApiYaml = Future.<OpenAPI3RouterFactory>future(f -> OpenAPI3RouterFactory.create(vertx, "ticketingAPI.yaml", f));
+        final var bookingRouterF = bookingApi.routes(bookingApiYaml);
+        final var ticketingRouterF = ticketingApi.routes(ticketingApiYaml);
 
-                    router.route().handler(LoggerHandler.create(SHORT));
+        CallbackUtils.mergeFutures(List.of(bookingRouterF, ticketingRouterF)).flatMap(routers -> {
+            final var router = Router.router(vertx);
 
-                    router.route().handler(CorsHandler.create(allowedOrigin)
-                            .allowedHeaders(allowedHeaders)
-                            .allowCredentials(true)
-                            .allowedMethods(allowedMethods));
+            router.route().handler(LoggerHandler.create(SHORT));
+            router.errorHandler(400, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+            router.errorHandler(404, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+            router.errorHandler(405, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+            router.errorHandler(406, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+            router.errorHandler(415, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+            router.route().handler(CorsHandler.create(allowedOrigin)
+                    .allowedHeaders(allowedHeaders)
+                    .allowCredentials(true)
+                    .allowedMethods(allowedMethods));
 
-                    return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
-                            .flatMap(keycloakHandler(selfHost, router))
-                            .map(oauth2 -> {
-                                router.route("/api/*").handler(oauth2); //todo
-//                                router.get("/logout").handler(this::handleLogout);
-                                router.get("/healthz").handler(healthCheck());
-                                router.mountSubRouter("/api", subrouter);
-                                return oauth2;
-                            })
-                            .<HttpServer>flatMap(ignore ->
-                                    Future.future(vertx.createHttpServer(new HttpServerOptions(httpConfig))
+            return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
+                    .flatMap(keycloakHandler(selfHost, router))
+                    .map(oauth2 -> {
+                        router.route("/api/*").handler(oauth2); //todo
+                        router.get("/healthz").handler(healthCheck());
+                        routers.forEach(subRouter -> router.mountSubRouter("/api", subRouter));
+                        return oauth2;
+                    })
+                    .<HttpServer>flatMap(ignore ->
+                            Future.future(vertx.createHttpServer(new HttpServerOptions(httpConfig))
                                     .requestHandler(router)
                                     ::listen));
-                })
-                .onSuccess(httpServer -> server = httpServer)
+        }).onSuccess(httpServer -> server = httpServer)
                 .<Void>mapEmpty()
                 .onComplete(startPromise);
+//        bookingApi.routes(bookingApiYaml);
+//        ticketingApi.routes(ticketingApiYaml)
+//                .flatMap(subrouter -> {
+//                    final var router = Router.router(vertx);
+//
+//                    router.route().handler(LoggerHandler.create(SHORT));
+//                    router.errorHandler(400, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+//                    router.errorHandler(404, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+//                    router.errorHandler(405, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+//                    router.errorHandler(406, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+//                    router.errorHandler(415, rc -> log.error(rc.getBodyAsString(), rc.failure()));
+//                    router.route().handler(CorsHandler.create(allowedOrigin)
+//                            .allowedHeaders(allowedHeaders)
+//                            .allowCredentials(true)
+//                            .allowedMethods(allowedMethods));
+//
+//                    return Future.<OAuth2Auth>future(h -> KeycloakAuth.discover(vertx, clientOptions, h))
+//                            .flatMap(keycloakHandler(selfHost, router))
+//                            .map(oauth2 -> {
+//                                router.route("/api/*").handler(oauth2); //todo
+////                                router.get("/logout").handler(this::handleLogout);
+//                                router.get("/healthz").handler(healthCheck());
+//
+//                                router.mountSubRouter("/api", subrouter);
+//                                return oauth2;
+//                            })
+//                            .<HttpServer>flatMap(ignore ->
+//                                    Future.future(vertx.createHttpServer(new HttpServerOptions(httpConfig))
+//                                    .requestHandler(router)
+//                                    ::listen));
+//                })
+//                .onSuccess(httpServer -> server = httpServer)
+//                .<Void>mapEmpty()
+//                .onComplete(startPromise);
     }
 
     private Function<OAuth2Auth, Future<AuthHandler>> keycloakHandler(String selfHost, Router router) {

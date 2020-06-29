@@ -2,6 +2,8 @@ package com.victor.banana.services;
 
 import com.victor.banana.models.events.ActionSelected;
 import com.victor.banana.models.events.TelegramChannel;
+import com.victor.banana.models.events.desk.Desk;
+import com.victor.banana.models.events.desk.DeskFilter;
 import com.victor.banana.models.events.locations.*;
 import com.victor.banana.models.events.messages.ChatMessage;
 import com.victor.banana.models.events.messages.ChatTicketMessage;
@@ -9,6 +11,8 @@ import com.victor.banana.models.events.messages.SentDeleteMessage;
 import com.victor.banana.models.events.messages.SentTicketMessage;
 import com.victor.banana.models.events.personnel.Personnel;
 import com.victor.banana.models.events.personnel.PersonnelFilter;
+import com.victor.banana.models.events.room.Room;
+import com.victor.banana.models.events.room.RoomFilter;
 import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
@@ -21,6 +25,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 
 import java.util.List;
+import java.util.UUID;
 
 import static com.victor.banana.controllers.db.LocationQueryHandler.addBuildingQ;
 import static com.victor.banana.controllers.db.LocationQueryHandler.addFloorQ;
@@ -35,6 +40,15 @@ public interface DatabaseService {
     }
 
     void healthCheck(Handler<AsyncResult<Void>> result);
+
+    void addDesk(Desk desk, Handler<AsyncResult<Desk>> result);
+
+    void addRoom(Room room, Handler<AsyncResult<Room>> result);
+
+    void findDesks(DeskFilter filter, Handler<AsyncResult<List<Desk>>> result);
+
+    void findRooms(RoomFilter filter, Handler<AsyncResult<List<Room>>> result);
+
 
     void addPersonnel(Personnel personnel, Handler<AsyncResult<Personnel>> result);
 
@@ -92,11 +106,11 @@ public interface DatabaseService {
 
     void addFloor(Floor floor, Handler<AsyncResult<Floor>> result);
 
-    void getFloorLocation(String locationId, Handler<AsyncResult<Floor>> result);
+    void getFloors(String buildingId, Handler<AsyncResult<List<Floor>>> result);
 
-    void getBuildingLocation(String locationId, Handler<AsyncResult<Building>> result);
+    void getBuildings(String companyId, Handler<AsyncResult<List<Building>>> result);
 
-    void getCompanyLocation(String locationId, Handler<AsyncResult<Company>> result);
+    void getBuildingLocation(String buildingId, Handler<AsyncResult<Building>> result);
 
     void getStickyAction(ActionSelected actionSelected, Handler<AsyncResult<StickyAction>> result);
 

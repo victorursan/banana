@@ -18,7 +18,7 @@ import static com.victor.banana.utils.SerdesUtils.serializeToJsonObject;
 @DataObject
 public class CreateSticky {
     @NotNull
-    private String message;
+    private String title;
     @Builder.Default
     private List<CreateAction> actions = List.of();
     @Builder.Default

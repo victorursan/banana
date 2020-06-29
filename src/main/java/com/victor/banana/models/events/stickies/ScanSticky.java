@@ -22,7 +22,7 @@ public class ScanSticky {
     @NotNull
     private UUID locationId;
     @NotNull
-    private String message;
+    private String title;
     @Builder.Default
     private List<Action> actions = List.of();
 

@@ -11,7 +11,7 @@ import com.victor.banana.models.events.stickies.*;
 import com.victor.banana.models.events.tickets.Ticket;
 import com.victor.banana.models.events.tickets.TicketFilter;
 import com.victor.banana.models.events.tickets.TicketState;
-import com.victor.banana.services.CartchufiService;
+import com.victor.banana.services.TicketingService;
 import com.victor.banana.services.DatabaseService;
 import com.victor.banana.services.KeycloakClientService;
 import com.victor.banana.services.TelegramBotService;
@@ -37,17 +37,15 @@ import static com.victor.banana.utils.MappersHelper.*;
 import static io.vertx.core.Future.*;
 import static java.util.stream.Collectors.toList;
 
-public class CartchufiServiceImpl implements CartchufiService {
-    private final static Logger log = LoggerFactory.getLogger(CartchufiServiceImpl.class);
+public class TicketingServiceImpl implements TicketingService {
+    private final static Logger log = LoggerFactory.getLogger(TicketingServiceImpl.class);
 
     private final TelegramBotService botService;
     private final DatabaseService databaseService;
-    private final KeycloakClientService keycloakClientService;
 
-    public CartchufiServiceImpl(TelegramBotService botService, DatabaseService databaseService, KeycloakClientService keycloakClientService) {
+    public TicketingServiceImpl(TelegramBotService botService, DatabaseService databaseService) {
         this.botService = botService;
         this.databaseService = databaseService;
-        this.keycloakClientService = keycloakClientService;
     }
 
     @Override
@@ -57,46 +55,9 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void createCompany(CreateCompany createCompany, Handler<AsyncResult<Company>> result) {
-        Future.<Company>future(c -> databaseService.addCompany(createCompanyToCompany().apply(createCompany), c))
-                .onComplete(result);
-    }
-
-    @Override
-    public final void createBuildingFloors(CreateBuildingFloors createBuilding, Handler<AsyncResult<BuildingFloors>> result) {
-        Future.<BuildingFloors>future(c -> databaseService.addBuildingFloors(createBuildingFloorsToBuildingFloors().apply(createBuilding), c))
-                .onComplete(result);
-    }
-
-    @Override
-    public final void getBuildingsForCompany(String companyId, Handler<AsyncResult<BuildingLocations>> result) {
-        Future.<BuildingLocations>future(f -> databaseService.getBuildingLocations(UUID.fromString(companyId).toString(), f))
-                .onComplete(result);
-    }
-
-    @Override
-    public final void getFloorLocations(String buildingId, Handler<AsyncResult<FloorLocations>> result) {
-        Future.<FloorLocations>future(f -> databaseService.getFloorLocations(UUID.fromString(buildingId).toString(), f))
-                .onComplete(result);
-    }
-
-    @Override
     public final void getScanSticky(String stickyLocation, Handler<AsyncResult<ScanSticky>> result) {
         Future.<ScanSticky>future(f -> databaseService.getScanSticky(stickyLocation, f))
                 .onComplete(result);
-    }
-
-    @Override
-    public final void getUserProfile(Personnel personnel, Handler<AsyncResult<UserProfile>> result) {
-        getUserProfile(personnel).onComplete(result);
-    }
-
-    private Future<UserProfile> getUserProfile(Personnel personnel) { //todo
-        return personnel.getBuildingId()
-                .map(buildingId ->
-                        Future.<Building>future(f -> databaseService.getBuildingLocation(buildingId.toString(), f))
-                                .map(buildingLocation -> createUserProfileFrom(personnel, buildingLocation))
-                ).orElse(Future.succeededFuture(createUserProfileFrom(personnel)));
     }
 
     @Override
@@ -165,7 +126,7 @@ public class CartchufiServiceImpl implements CartchufiService {
         log.debug(String.format("no ticket found for actionSelected: %s", actionSelected));
         return Future.<StickyAction>future(t -> databaseService.getStickyAction(actionSelected, t))
                 .flatMap(stickyAction -> {
-                    final var ticket = TicketAction.createTicket(stickyAction);
+                    final var ticket = TicketAction.createTicket(stickyAction); //todo this should return CreateTicket because of createAt
                     final var ticketF = Future.<Ticket>future(t -> databaseService.addTicket(ticket, t))
                             .onSuccess(t -> addTicketCreatedByNotification(personnel.getId(), t.getId()));
                     final var affectedChatsF = chatsForTicket(ticket);
@@ -226,58 +187,6 @@ public class CartchufiServiceImpl implements CartchufiService {
                 .onComplete(result);
     }
 
-    @Override
-    public final void updatePersonnel(String personnelId, UpdatePersonnel updatePersonnel, Handler<AsyncResult<Personnel>> result) {
-        Future.<Personnel>future(f -> databaseService.getPersonnel(personnelId, f))
-                .flatMap(p -> {
-                    final var newRoleOpt = updatePersonnel.getRoleId().flatMap(PersonnelRole::from);
-                    final var userId = UUID.fromString(personnelId);
-
-                    final var keycloakUpdate = newRoleOpt.map(role -> {
-                        final var keyU = createKeyUserRoleUpdate(userId, role);
-                        return Future.<Void>future(t -> keycloakClientService.userRoleUpdate(keyU, t));
-                    }).orElse(Future.succeededFuture());
-                    final var pers = createPersonnelFrom(updatePersonnel, p, userId);
-                    final var personnelUpdate = Future.<Personnel>future(ft -> databaseService.updatePersonnel(pers, ft));
-                    return CallbackUtils.mergeFutures(personnelUpdate, keycloakUpdate)
-                            .map(i -> personnelUpdate.result());
-                }).onComplete(result);
-    }
-
-    @Override
-    public final void deletePersonnel(String personnelId, Handler<AsyncResult<Void>> result) {
-        final var keycloakDelete = Future.<Void>future(f -> keycloakClientService.deleteUser(createKeyUserDelete(personnelId), f));
-        final var dbDelete = Future.<Void>future(f -> databaseService.deactivatePersonnel(personnelId, f));
-        CallbackUtils.mergeFutures(keycloakDelete, dbDelete)
-                .<Void>mapEmpty()
-                .onComplete(result);
-    }
-
-    @Override
-    public final void addTelegramToUserProfile(TelegramLoginData telegramLoginData, Handler<AsyncResult<UserProfile>> result) {
-        final var personnelId = telegramLoginData.getPersonnel().getId();
-        createTelegramChannel(personnelId, telegramLoginData.getChatId(), telegramLoginData.getUsername())
-                .flatMap(telegramChannel -> getPersonnel(telegramChannel.getPersonnelId().toString()))
-                .flatMap(this::getUserProfile)
-                .onComplete(result);
-    }
-
-
-    @Override
-    public final void getPersonnel(String personnelId, Handler<AsyncResult<Personnel>> result) {
-        getPersonnel(personnelId).onComplete(result);
-    }
-
-    private Future<Personnel> getPersonnel(String personnelId) {
-        return future(f -> databaseService.getPersonnel(personnelId, f));
-    }
-
-    @Override
-    public final void findPersonnel(PersonnelFilter filter, Handler<AsyncResult<List<Personnel>>> result) {
-        Future.<List<Personnel>>future(f -> databaseService.findPersonnelWithFilter(filter, f))
-                .onComplete(result);
-    }
-
     private Future<Void> transitionTicket(Ticket ticket, TicketState newTicketState, TelegramChannel tc) {
         final var ticketActionOpt = TicketAction.computeFor(ticket, newTicketState, tc);
         return ticketActionOpt.map(this::processTicketAction)
@@ -315,69 +224,9 @@ public class CartchufiServiceImpl implements CartchufiService {
     }
 
     @Override
-    public final void getOrElseCreatePersonnel(TokenUser user, Handler<AsyncResult<Personnel>> result) {
-        Future.<Personnel>future((e -> databaseService.getPersonnel(user.getId().toString(), e)))
-                .flatMap(p -> {
-                    if (p.getRole().isEmpty() || user.getAuthority().toPersonnelRole().isBetter(p.getRole().get())) { //todo
-                        final var newP = new Personnel(p.toJson());
-                        newP.setRole(user.getAuthority().toPersonnelRole());
-                        return future(f -> databaseService.updatePersonnel(newP, f));
-                    }
-                    return succeededFuture(p);
-                })
-                .recover(error -> {
-                    if (error instanceof ServiceException) {
-                        return switch (((ServiceException) error).failureCode()) {
-                            case FAILED_NO_ELEMENT_FOUND -> {
-                                final var personnel = createPersonnelFrom(user);
-                                yield future(f -> databaseService.addPersonnel(personnel, f));
-                            }
-                            default -> failedFuture(error);
-                        };
-                    }
-                    return failedFuture(error);
-                })
-                .onComplete(result);
-    }
-
-    @Override
-    public final void receivedPersonnelMessage(RecvPersonnelMessage recvPersonnelMessage) {
-        final ChatMessage message = createChatMessage(recvPersonnelMessage);
-        Future.<TelegramChannel>future(f -> createChannel(recvPersonnelMessage.getChannel(), f))
-                .flatMap(telegramChannel -> Future.<ChatMessage>future(c -> databaseService.addMessage(message, c)))
-                .onFailure(t -> log.error("An error occurred: ", t))
-                .onSuccess(m -> log.debug("Added message: " + m.toString()));
-    }
-
-    private Future<Personnel> createPersonnel(Optional<String> firstName, Optional<String> lastName) {
-        final Personnel personnel = createPersonnelFrom(firstName, lastName);
-        return future(e -> databaseService.addPersonnel(personnel, e));
-    }
-
-    private Future<TelegramChannel> createTelegramChannel(UUID personnelId, Long chatId, String username) {
-        final TelegramChannel chat = createTelegramChannelFrom(personnelId, chatId, username);
-        return future(e -> databaseService.addChat(chat, e));
-    }
-
-    @Override
-    public final void createChannel(CreateChannelMessage createChannel, Handler<AsyncResult<TelegramChannel>> result) {
-        Future.<TelegramChannel>future((e -> databaseService.getChat(createChannel.getChatId(), e)))
-                .recover(error -> {
-                    if (error instanceof ServiceException) {
-                        return switch (((ServiceException) error).failureCode()) {
-                            case FAILED_NO_ELEMENT_FOUND -> createPersonnel(createChannel.getFirstName(), createChannel.getLastName())
-                                    .flatMap(personnel -> createTelegramChannel(personnel.getId(), createChannel.getChatId(), createChannel.getUsername()));
-                            default -> failedFuture(error);
-                        };
-                    }
-                    return failedFuture(error);
-                }).onComplete(result);
-    }
-
-    @Override
     public final void updateSticky(String stickyIdS, UpdateSticky update, Handler<AsyncResult<Sticky>> result) {
         getSticky(stickyIdS).flatMap(s -> {
-            final var stickyTitleF = updateStickyTitle(s, update.getActive(), update.getMessage());
+            final var stickyTitleF = updateStickyTitle(s, update.getActive(), update.getTitle());
             final var stickyActionsF = updateStickyActions(update, s);
             final var stickyLocationsF = updateStickyLocations(update, s);
             return mergeFutures(stickyTitleF, stickyActionsF, stickyLocationsF)
